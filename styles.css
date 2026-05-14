@@ -424,6 +424,20 @@ select:focus {
   line-height: 1.45;
 }
 
+.wardrobe-tools {
+  display: grid;
+  grid-template-columns: minmax(220px, 1.2fr) repeat(3, minmax(140px, 1fr));
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+.collection-summary {
+  margin: 0 0 14px;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.45;
+}
+
 .badge {
   min-width: 34px;
   padding: 6px 10px;
@@ -592,6 +606,7 @@ select:focus {
 
   .field-grid,
   .controls-grid,
+  .wardrobe-tools,
   .scan-actions,
   .scan-flow {
     grid-template-columns: 1fr;

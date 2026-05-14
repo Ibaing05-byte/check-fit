@@ -13,7 +13,7 @@
       <div>
         <p class="eyebrow">Armario inteligente</p>
         <h1>Check Fit</h1>
-        <p class="hero-copy">Crea un armario visual, detecta colores desde fotos y prueba un flujo piloto de IA para convertir tu armario en outfits.</p>
+        <p class="hero-copy">Beta de Check Fit: crea un armario visual, analiza colores desde fotos y convierte tus prendas en recomendaciones de outfit con revisión asistida.</p>
       </div>
       <div class="hero-stats" aria-label="Resumen del armario">
         <span><strong id="totalItems">0</strong> prendas</span>
@@ -70,10 +70,10 @@
         </form>
 
         <div id="closetScanPanel" class="mode-panel">
-          <p class="mode-copy">Piloto de IA simulada: sube una foto del armario completo y la app generará prendas pendientes para revisar.</p>
+          <p class="mode-copy">Escaneo inteligente en fase beta: sube una foto del armario completo y Check Fit preparará prendas pendientes para revisión asistida.</p>
           <label class="upload-box scan" for="closetPhoto">
             <span>Subir foto del armario completo</span>
-            <small>En esta versión aún no se separan prendas automáticamente de forma real</small>
+            <small>Tecnología de análisis visual en fase beta, con revisión manual antes de guardar</small>
             <input id="closetPhoto" type="file" accept="image/*" />
           </label>
 
@@ -86,17 +86,17 @@
             </div>
           </div>
 
-          <div class="scan-flow" aria-label="Flujo de escaneo simulado">
+          <div class="scan-flow" aria-label="Flujo de escaneo inteligente">
             <span>Foto del armario</span>
-            <span>IA detectando</span>
-            <span>Pendientes</span>
+            <span>Análisis visual</span>
+            <span>Revisión asistida</span>
           </div>
 
           <div class="scan-actions">
-            <button id="simulateClosetScan" class="secondary" type="button" disabled>Simular detección IA</button>
+            <button id="simulateClosetScan" class="secondary" type="button" disabled>Analizar armario</button>
             <button id="clearPending" class="ghost" type="button">Vaciar pendientes</button>
           </div>
-          <p id="scanStatus" class="auto-hint">Sube una foto del armario para iniciar el flujo piloto.</p>
+          <p id="scanStatus" class="auto-hint" aria-live="polite">Sube una foto del armario para iniciar el escaneo inteligente.</p>
         </div>
       </section>
 
@@ -135,7 +135,7 @@
           </div>
           <button id="recommendButton" type="button">Recomendar outfit</button>
 
-          <div id="result" class="result" hidden>
+          <div id="result" class="result" aria-live="polite" hidden>
             <div>
               <p class="eyebrow dark">Look recomendado</p>
               <h3>Tu outfit de hoy</h3>
@@ -167,6 +167,29 @@
             </div>
             <button id="clearWardrobe" class="ghost danger" type="button">Borrar armario</button>
           </div>
+          <div class="wardrobe-tools" aria-label="Filtros del armario">
+            <label>
+              Buscar
+              <input id="wardrobeSearch" type="search" placeholder="Nombre, color o estilo" autocomplete="off" />
+            </label>
+            <label>
+              Tipo
+              <select id="wardrobeTypeFilter"></select>
+            </label>
+            <label>
+              Estilo
+              <select id="wardrobeStyleFilter"></select>
+            </label>
+            <label>
+              Orden
+              <select id="wardrobeSort">
+                <option value="recent">Más recientes</option>
+                <option value="name">Nombre A-Z</option>
+                <option value="least-used">Menos recomendadas</option>
+              </select>
+            </label>
+          </div>
+          <p id="wardrobeSummary" class="collection-summary" aria-live="polite"></p>
           <div id="wardrobe" class="wardrobe"></div>
         </section>
       </section>

@@ -1,4 +1,6 @@
 const STORAGE_KEY = "wardrobeWithPhotos";
+const PENDING_STORAGE_KEY = "checkFitPendingItems";
+const FILTER_STORAGE_KEY = "checkFitWardrobeFilters";
 const LAST_OUTFIT_KEY = "checkFitLastOutfit";
 
 const TYPES = [
@@ -38,6 +40,13 @@ const TYPE_GROUPS = {
   shoes: ["zapatos", "zapatillas", "botas", "sandalias"],
   accessory: ["gorra", "bolso", "bufanda", "accesorio"]
 };
+const GROUP_LABELS = {
+  top: "parte de arriba",
+  layer: "capa exterior",
+  bottom: "parte de abajo",
+  shoes: "calzado",
+  accessory: "accesorio"
+};
 
 // Armario inicial para que la app se pueda probar nada más abrirla.
 const DEFAULT_WARDROBE = [
@@ -49,7 +58,8 @@ const DEFAULT_WARDROBE = [
 
 let selectedPhoto = "";
 let wardrobe = loadWardrobe();
-let pendingItems = [];
+let pendingItems = loadPendingItems();
+let wardrobeFilters = loadWardrobeFilters();
 
 // Referencias centralizadas: evita mezclar selectores por todo el archivo.
 const elements = {
@@ -84,6 +94,11 @@ const elements = {
   outfit: document.getElementById("outfit"),
   explanation: document.getElementById("explanation"),
   wardrobe: document.getElementById("wardrobe"),
+  wardrobeSearch: document.getElementById("wardrobeSearch"),
+  wardrobeTypeFilter: document.getElementById("wardrobeTypeFilter"),
+  wardrobeStyleFilter: document.getElementById("wardrobeStyleFilter"),
+  wardrobeSort: document.getElementById("wardrobeSort"),
+  wardrobeSummary: document.getElementById("wardrobeSummary"),
   clearWardrobe: document.getElementById("clearWardrobe")
 };
 
@@ -95,6 +110,10 @@ function init() {
   populateSelect(elements.type, TYPES, "camiseta");
   populateSelect(elements.style, STYLES, "casual");
   populateSelect(elements.season, SEASONS, "entretiempo");
+  populateSelect(elements.wardrobeTypeFilter, ["todos", ...TYPES], wardrobeFilters.type || "todos");
+  populateSelect(elements.wardrobeStyleFilter, ["todos", ...STYLES], wardrobeFilters.style || "todos");
+  elements.wardrobeSearch.value = wardrobeFilters.search;
+  elements.wardrobeSort.value = wardrobeFilters.sort;
 
   elements.singleModeButton.addEventListener("click", () => setCaptureMode("single"));
   elements.closetModeButton.addEventListener("click", () => setCaptureMode("closet"));
@@ -106,6 +125,14 @@ function init() {
   elements.clearPending.addEventListener("click", clearPending);
   elements.recommendButton.addEventListener("click", generateOutfit);
   elements.clearWardrobe.addEventListener("click", clearWardrobe);
+  elements.wardrobeSearch.addEventListener("input", updateWardrobeFilters);
+  elements.wardrobeTypeFilter.addEventListener("change", updateWardrobeFilters);
+  elements.wardrobeStyleFilter.addEventListener("change", updateWardrobeFilters);
+  elements.wardrobeSort.addEventListener("change", updateWardrobeFilters);
+
+  if (pendingItems.length) {
+    elements.scanStatus.textContent = `${pendingItems.length} prendas pendientes recuperadas de la última sesión.`;
+  }
 
   renderAll();
 }
@@ -122,15 +149,60 @@ function setCaptureMode(mode) {
 
 // Persistencia local: no hay backend ni cuentas de usuario.
 function loadWardrobe() {
-  try {
-    return JSON.parse(localStorage.getItem(STORAGE_KEY)) || DEFAULT_WARDROBE;
-  } catch {
-    return DEFAULT_WARDROBE;
-  }
+  const stored = readJson(STORAGE_KEY, null);
+  const source = Array.isArray(stored) ? stored : DEFAULT_WARDROBE;
+  return source.map(normalizeWardrobeItem);
+}
+
+function loadPendingItems() {
+  const stored = readJson(PENDING_STORAGE_KEY, []);
+  return Array.isArray(stored) ? stored.map(normalizePendingItem) : [];
+}
+
+function loadWardrobeFilters() {
+  const filters = {
+    search: "",
+    type: "todos",
+    style: "todos",
+    sort: "recent",
+    ...readJson(FILTER_STORAGE_KEY, {})
+  };
+
+  return {
+    search: String(filters.search || ""),
+    type: ["todos", ...TYPES].includes(filters.type) ? filters.type : "todos",
+    style: ["todos", ...STYLES].includes(filters.style) ? filters.style : "todos",
+    sort: ["recent", "name", "least-used"].includes(filters.sort) ? filters.sort : "recent"
+  };
 }
 
 function saveWardrobe() {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(wardrobe));
+  writeJson(STORAGE_KEY, wardrobe);
+}
+
+function savePendingItems() {
+  writeJson(PENDING_STORAGE_KEY, pendingItems);
+}
+
+function saveWardrobeFilters() {
+  writeJson(FILTER_STORAGE_KEY, wardrobeFilters);
+}
+
+function readJson(key, fallback) {
+  try {
+    const value = localStorage.getItem(key);
+    return value ? JSON.parse(value) : fallback;
+  } catch {
+    return fallback;
+  }
+}
+
+function writeJson(key, value) {
+  try {
+    localStorage.setItem(key, JSON.stringify(value));
+  } catch {
+    alert("No he podido guardar los cambios. Puede que el navegador tenga el almacenamiento local lleno.");
+  }
 }
 
 function populateSelect(select, options, selectedValue) {
@@ -218,17 +290,49 @@ function readSingleForm() {
 }
 
 function createWardrobeItem(data) {
+  return normalizeWardrobeItem({
+    ...data,
+    id: data.id || createId()
+  });
+}
+
+function normalizeWardrobeItem(data) {
   return {
-    id: Date.now() + Math.floor(Math.random() * 10000),
-    name: data.name,
-    color: data.color,
-    type: data.type,
-    style: data.style,
-    season: data.season,
+    id: data.id || createId(),
+    name: data.name || "Prenda sin nombre",
+    color: normalizeColor(data.color || ""),
+    type: TYPES.includes(data.type) ? data.type : "otro",
+    style: STYLES.includes(data.style) ? data.style : "casual",
+    season: SEASONS.includes(data.season) ? data.season : "entretiempo",
     photo: data.photo || "",
+    createdAt: data.createdAt || inferTimestamp(data.id),
     timesRecommended: data.timesRecommended || 0,
     lastRecommendedAt: data.lastRecommendedAt || 0
   };
+}
+
+function normalizePendingItem(data) {
+  return {
+    id: data.id || createId(),
+    name: data.name || "Prenda detectada",
+    color: normalizeColor(data.color || ""),
+    type: TYPES.includes(data.type) ? data.type : "otro",
+    style: STYLES.includes(data.style) ? data.style : "casual",
+    season: SEASONS.includes(data.season) ? data.season : "entretiempo",
+    photo: data.photo || "",
+    createdAt: data.createdAt || inferTimestamp(data.id),
+    source: data.source || "Análisis visual beta"
+  };
+}
+
+function createId() {
+  if (window.crypto?.randomUUID) return crypto.randomUUID();
+  return `${Date.now()}-${Math.floor(Math.random() * 100000)}`;
+}
+
+function inferTimestamp(id) {
+  const timestamp = Number(String(id).split("-")[0]);
+  return timestamp > 1000000000000 ? timestamp : Date.now();
 }
 
 function resetSingleForm() {
@@ -251,25 +355,26 @@ async function previewClosetPhoto(event) {
   elements.closetPreview.src = closetScanImage;
   elements.closetPreviewWrap.hidden = false;
   elements.simulateClosetScan.disabled = false;
-  elements.scanStatus.textContent = "Foto cargada. La detección automática es simulada en este piloto.";
+  elements.scanStatus.textContent = "Foto cargada. La detección en desarrollo preparará prendas para revisión asistida.";
 }
 
 async function scanClosetImage() {
   if (!closetScanImage) return;
 
   elements.simulateClosetScan.disabled = true;
-  elements.scanStatus.textContent = "IA simulada analizando zonas de la foto...";
+  elements.scanStatus.textContent = "Analizando zonas de la foto con tecnología de análisis visual en fase beta...";
 
   const detections = await detectGarmentsFromClosetImage(closetScanImage);
   const drafts = detections.map(createPendingItemFromDetection);
   pendingItems = pendingItems.concat(drafts);
-  elements.scanStatus.textContent = `${drafts.length} prendas simuladas añadidas a pendientes. Revísalas antes de guardarlas.`;
+  savePendingItems();
+  elements.scanStatus.textContent = `${drafts.length} prendas añadidas a revisión asistida. Revísalas antes de guardarlas.`;
   elements.simulateClosetScan.disabled = false;
   renderAll();
 }
 
-// Punto preparado para IA real: en el futuro esta función puede llamar a una API de visión artificial.
-// Ahora devuelve detecciones simuladas para validar el flujo "armario completo -> prendas pendientes".
+// Punto preparado para conectar una API de visión artificial cuando el análisis visual pase de beta a producción.
+// De momento genera borradores revisables para mantener un flujo honesto de "armario completo -> revisión asistida".
 async function detectGarmentsFromClosetImage(image) {
   const dominantColor = await analyzeImageColor(image);
   return [
@@ -280,16 +385,16 @@ async function detectGarmentsFromClosetImage(image) {
 }
 
 function createPendingItemFromDetection(detection) {
-  return {
-    id: Date.now() + Math.floor(Math.random() * 100000),
+  return normalizePendingItem({
+    id: createId(),
     name: detection.name || "Prenda detectada",
     color: detection.color || "",
     type: detection.type || "otro",
     style: detection.style || "casual",
     season: detection.season || "entretiempo",
     photo: detection.photo || "",
-    source: detection.source || "IA simulada"
-  };
+    source: detection.source || "Análisis visual beta"
+  });
 }
 
 // Inferencias ligeras desde el nombre del archivo para acelerar la revisión manual.
@@ -489,8 +594,9 @@ function renderStats() {
 
 function renderWardrobe() {
   elements.wardrobe.innerHTML = "";
+  const visibleItems = getVisibleWardrobeItems();
 
-  wardrobe.forEach(item => {
+  visibleItems.forEach(item => {
     const card = document.createElement("article");
     card.className = "item";
     card.appendChild(createImage(item));
@@ -520,6 +626,52 @@ function renderWardrobe() {
     card.appendChild(body);
     elements.wardrobe.appendChild(card);
   });
+
+  renderWardrobeSummary(visibleItems.length);
+}
+
+function updateWardrobeFilters() {
+  wardrobeFilters = {
+    search: elements.wardrobeSearch.value.trim(),
+    type: elements.wardrobeTypeFilter.value,
+    style: elements.wardrobeStyleFilter.value,
+    sort: elements.wardrobeSort.value
+  };
+  saveWardrobeFilters();
+  renderWardrobe();
+}
+
+function getVisibleWardrobeItems() {
+  const search = normalizeSearchText(wardrobeFilters.search);
+  const filtered = wardrobe.filter(item => {
+    const matchesSearch = !search || [item.name, item.color, item.type, item.style, item.season]
+      .some(value => normalizeSearchText(value || "").includes(search));
+    const matchesType = wardrobeFilters.type === "todos" || item.type === wardrobeFilters.type;
+    const matchesStyle = wardrobeFilters.style === "todos" || item.style === wardrobeFilters.style;
+    return matchesSearch && matchesType && matchesStyle;
+  });
+
+  return filtered.sort((a, b) => {
+    if (wardrobeFilters.sort === "name") return a.name.localeCompare(b.name, "es");
+    if (wardrobeFilters.sort === "least-used") {
+      return (a.timesRecommended || 0) - (b.timesRecommended || 0) || b.createdAt - a.createdAt;
+    }
+    return b.createdAt - a.createdAt;
+  });
+}
+
+function renderWardrobeSummary(visibleCount) {
+  if (!wardrobe.length) {
+    elements.wardrobeSummary.textContent = "Tu armario está vacío.";
+    return;
+  }
+
+  if (visibleCount === wardrobe.length) {
+    elements.wardrobeSummary.textContent = `${wardrobe.length} prendas guardadas.`;
+    return;
+  }
+
+  elements.wardrobeSummary.textContent = `${visibleCount} de ${wardrobe.length} prendas visibles con los filtros actuales.`;
 }
 
 function renderPendingGallery() {
@@ -570,6 +722,7 @@ function createPendingInput(item, key, labelText) {
   input.value = item[key] || "";
   input.addEventListener("input", event => {
     item[key] = event.target.value;
+    savePendingItems();
   });
 
   label.appendChild(input);
@@ -584,6 +737,7 @@ function createPendingSelect(item, key, labelText, options) {
   populateSelect(select, options, item[key]);
   select.addEventListener("change", event => {
     item[key] = event.target.value;
+    savePendingItems();
   });
 
   label.appendChild(select);
@@ -609,6 +763,8 @@ function confirmPendingItem(id) {
   }));
   removePendingItem(id, false);
   saveWardrobe();
+  savePendingItems();
+  elements.scanStatus.textContent = `${item.name.trim()} guardada en tu armario.`;
   renderAll();
 }
 
@@ -631,16 +787,21 @@ function confirmAllPending() {
   });
   pendingItems = [];
   saveWardrobe();
+  savePendingItems();
+  elements.scanStatus.textContent = "Todas las prendas pendientes se han guardado en tu armario.";
   renderAll();
 }
 
 function removePendingItem(id, shouldRender = true) {
   pendingItems = pendingItems.filter(item => item.id !== id);
+  savePendingItems();
   if (shouldRender) renderAll();
 }
 
 function clearPending() {
   pendingItems = [];
+  savePendingItems();
+  elements.scanStatus.textContent = "Pendientes vaciados.";
   renderAll();
 }
 
@@ -707,7 +868,7 @@ function generateOutfit() {
     if (item) selected.push(item);
   });
 
-  renderOutfit(selected, context);
+  renderOutfit(selected, context, requiredTypes);
   rememberOutfit(selected);
 }
 
@@ -783,7 +944,11 @@ function colorHarmonyScore(color, selectedColors) {
 }
 
 function normalizeColor(color) {
-  return color.trim().toLowerCase();
+  return String(color).trim().toLowerCase();
+}
+
+function normalizeSearchText(value) {
+  return normalizeColor(value).normalize("NFD").replace(/[\u0300-\u036f]/g, "");
 }
 
 function isNeutral(color) {
@@ -804,7 +969,7 @@ function areCompatibleColors(a, b) {
   return combinations.some(pair => pair.includes(a) && pair.includes(b));
 }
 
-function renderOutfit(pieces, context) {
+function renderOutfit(pieces, context, requiredTypes) {
   elements.outfit.innerHTML = "";
 
   if (!pieces.length) {
@@ -829,17 +994,31 @@ function renderOutfit(pieces, context) {
     });
   }
 
-  elements.explanation.textContent = buildExplanation(pieces, context);
+  elements.explanation.textContent = buildExplanation(pieces, context, requiredTypes);
   elements.result.hidden = false;
 }
 
-function buildExplanation(pieces, context) {
+function buildExplanation(pieces, context, requiredTypes) {
   if (!pieces.length) {
     return "Check Fit necesita al menos algunas prendas clasificadas para combinar clima, ocasión y color.";
   }
 
   const colors = pieces.map(piece => piece.color).filter(Boolean).join(", ");
-  return `Recomendación para ${context.occasion}: ${context.temperature}º, clima ${context.climate}. He priorizado temporada, estilo, armonía de color (${colors || "colores pendientes"}) y prendas que no salieron en el último look.`;
+  const selectedGroups = new Set(pieces.map(getItemGroup).filter(Boolean));
+  const missingGroups = requiredTypes
+    .filter(group => !selectedGroups.has(group))
+    .map(group => GROUP_LABELS[group]);
+  const missingText = missingGroups.length ? ` Falta ${formatList(missingGroups)} para completar el look.` : "";
+  return `Recomendación para ${context.occasion}: ${context.temperature}º, clima ${context.climate}. He priorizado temporada, estilo, armonía de color (${colors || "colores pendientes"}) y prendas que no salieron en el último look.${missingText}`;
+}
+
+function getItemGroup(item) {
+  return Object.entries(TYPE_GROUPS).find(([, types]) => types.includes(item.type))?.[0];
+}
+
+function formatList(values) {
+  if (values.length <= 1) return values[0] || "";
+  return `${values.slice(0, -1).join(", ")} y ${values.at(-1)}`;
 }
 
 function readLastOutfitIds() {
