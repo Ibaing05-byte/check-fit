@@ -3,197 +3,364 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#08090d" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
   <title>Check Fit</title>
   <link rel="stylesheet" href="styles.css" />
-  <script src="app.js" defer></script>
+  <script type="module" src="app.js"></script>
 </head>
 <body>
   <div class="app-shell">
-    <header class="hero">
-      <div>
-        <p class="eyebrow">Armario inteligente</p>
-        <h1>Check Fit</h1>
-        <p class="hero-copy">Beta de Check Fit: crea un armario visual, analiza colores desde fotos y convierte tus prendas en recomendaciones de outfit con revisión asistida.</p>
-      </div>
-      <div class="hero-stats" aria-label="Resumen del armario">
-        <span><strong id="totalItems">0</strong> prendas</span>
-        <span><strong id="pendingItems">0</strong> pendientes</span>
-      </div>
-    </header>
-
-    <main class="layout">
-      <section class="panel closet-actions" aria-label="Añadir prendas">
-        <div class="section-heading">
-          <p class="eyebrow">Captura</p>
-          <h2>Crear armario</h2>
+    <header id="home" class="app-hero app-screen" aria-label="Inicio de Check Fit">
+      <nav class="topbar" aria-label="Resumen de producto">
+        <span class="brand-mark">Check Fit</span>
+        <span class="beta-pill">Beta privada</span>
+      </nav>
+      <section class="hero-grid">
+        <div class="hero-copy">
+          <p class="eyebrow">Fashion-tech para tu armario real</p>
+          <h1>La forma más rápida e inteligente de decidir qué ponerte.</h1>
+          <p>Sube tus prendas, crea looks útiles para tu día y prepara tu armario para una futura capa de IA visual sin fingir automatizaciones que todavía no existen.</p>
+          <div class="hero-actions">
+            <a class="button-link primary" href="#capture">Añadir ropa</a>
+            <a class="button-link secondary" href="#outfitBuilder">Crear outfit</a>
+          </div>
         </div>
-
-        <div class="mode-switch" role="tablist" aria-label="Modo de captura">
-          <button id="singleModeButton" class="mode-button active" type="button" role="tab" aria-selected="true">Prendas sueltas</button>
-          <button id="closetModeButton" class="mode-button" type="button" role="tab" aria-selected="false">Escanear armario</button>
-        </div>
-
-        <form id="singleItemForm" class="form-stack mode-panel active">
-          <p class="mode-copy">Sube una prenda individual. Check Fit intentará completar nombre y color automáticamente.</p>
-          <label class="upload-box" for="photo">
-            <span>Subir foto de prenda</span>
-            <small>El color se analiza en tu navegador con canvas</small>
-            <input id="photo" type="file" accept="image/*" />
-          </label>
-          <img id="preview" class="preview" alt="Vista previa de la prenda" />
-          <p id="colorHint" class="auto-hint" hidden></p>
-
-          <label>
-            Nombre
-            <input id="name" placeholder="Ej. blazer verde" autocomplete="off" />
-          </label>
-          <label>
-            Color
-            <input id="color" placeholder="Autodetectado al subir foto" autocomplete="off" />
-          </label>
-          <div class="field-grid">
-            <label>
-              Tipo
-              <select id="type"></select>
-            </label>
-            <label>
-              Estilo
-              <select id="style"></select>
-            </label>
-            <label>
-              Temporada
-              <select id="season"></select>
-            </label>
+        <div class="hero-phone" aria-label="Vista resumida de Check Fit">
+          <div class="phone-status">
+            <span>Hoy</span>
+            <strong id="heroItemCount">0 prendas</strong>
           </div>
-          <button type="submit">Guardar prenda</button>
-          <p class="note">Las fotos se guardan solo en este navegador mediante localStorage.</p>
-        </form>
-
-        <div id="closetScanPanel" class="mode-panel">
-          <p class="mode-copy">Escaneo inteligente en fase beta: sube una foto del armario completo y Check Fit preparará prendas pendientes para revisión asistida.</p>
-          <label class="upload-box scan" for="closetPhoto">
-            <span>Subir foto del armario completo</span>
-            <small>Tecnología de análisis visual en fase beta, con revisión manual antes de guardar</small>
-            <input id="closetPhoto" type="file" accept="image/*" />
-          </label>
-
-          <div id="closetPreviewWrap" class="closet-preview-wrap" hidden>
-            <img id="closetPreview" class="closet-preview" alt="Foto del armario completo" />
-            <div class="scan-overlay" aria-hidden="true">
-              <span></span>
-              <span></span>
-              <span></span>
-            </div>
-          </div>
-
-          <div class="scan-flow" aria-label="Flujo de escaneo inteligente">
-            <span>Foto del armario</span>
-            <span>Análisis visual</span>
-            <span>Revisión asistida</span>
-          </div>
-
-          <div class="scan-actions">
-            <button id="simulateClosetScan" class="secondary" type="button" disabled>Analizar armario</button>
-            <button id="clearPending" class="ghost" type="button">Vaciar pendientes</button>
-          </div>
-          <p id="scanStatus" class="auto-hint" aria-live="polite">Sube una foto del armario para iniciar el escaneo inteligente.</p>
+          <div class="look-stack" id="heroLookStack"></div>
+          <p>Recomendaciones con clima, estilo, color y rotación de uso.</p>
         </div>
       </section>
 
-      <section class="content-stack">
-        <section class="panel outfit-panel" aria-label="Recomendación de outfit">
-          <div class="section-heading">
-            <p class="eyebrow">Recomendador</p>
-            <h2>Crear outfit de hoy</h2>
+      <section class="home-dashboard" aria-label="Panel de inicio">
+        <article class="daily-look-card">
+          <div>
+            <p class="eyebrow">Outfit del día</p>
+            <h2 id="dailyTitle">Tu look está esperando</h2>
           </div>
-          <div class="controls-grid">
+          <div id="dailyLookStack" class="daily-look-stack"></div>
+          <p id="dailyMessage">Añade algunas prendas para desbloquear una recomendación diaria más precisa.</p>
+          <div class="quick-actions">
+            <button id="dailyCreateButton" class="primary" type="button">Crear outfit</button>
+            <a class="button-link secondary" href="#capture">Añadir prenda</a>
+          </div>
+        </article>
+
+        <article class="retention-card">
+          <p class="eyebrow">Tu ritmo</p>
+          <div class="retention-grid">
+            <span><strong id="streakCount">0</strong> racha</span>
+            <span><strong id="activeDaysCount">0</strong> días</span>
+            <span><strong id="generatedCount">0</strong> looks</span>
+          </div>
+          <p id="dailyInsight">Tienes prendas listas para construir tu próximo look.</p>
+        </article>
+
+        <article class="mini-stats-card">
+          <p class="eyebrow">Armario</p>
+          <div class="mini-stat-line">
+            <span>Prendas</span>
+            <strong id="homeWardrobeCount">0</strong>
+          </div>
+          <div class="mini-stat-line">
+            <span>Sin usar</span>
+            <strong id="unusedItemsCount">0</strong>
+          </div>
+          <div class="mini-stat-line">
+            <span>Favoritos</span>
+            <strong id="favoriteOutfitCount">0</strong>
+          </div>
+        </article>
+      </section>
+    </header>
+
+    <main>
+      <section class="onboarding" aria-label="Cómo empezar">
+        <article>
+          <span>01</span>
+          <strong>Añade ropa rápido</strong>
+          <p>Foto individual o recortes desde una imagen del armario.</p>
+        </article>
+        <article>
+          <span>02</span>
+          <strong>Crea un outfit</strong>
+          <p>Elige ocasión, clima, temperatura y estilo del día.</p>
+        </article>
+        <article>
+          <span>03</span>
+          <strong>Guarda favoritos</strong>
+          <p>Marca looks usados y deja que Check Fit rote mejor.</p>
+        </article>
+      </section>
+
+      <section class="app-grid app-screen" id="outfit" aria-label="Captura y outfit">
+        <section id="capture" class="surface capture-panel" aria-label="Añadir prendas">
+          <div class="section-heading">
+            <p class="eyebrow">Captura inteligente</p>
+            <h2>Meter ropa sin fricción</h2>
+          </div>
+
+          <div class="segmented-control" role="tablist" aria-label="Modo de captura">
+            <button id="singleModeButton" class="active" type="button" role="tab" aria-selected="true">Prenda individual</button>
+            <button id="closetModeButton" type="button" role="tab" aria-selected="false">Desde armario</button>
+          </div>
+
+          <form id="singleItemForm" class="capture-mode active">
+            <p class="section-copy">Sube una prenda. Check Fit propone nombre, color y categoría; tú decides el ajuste final.</p>
+            <label class="upload-drop" for="photo">
+              <span>Subir foto de prenda</span>
+              <small>Color calculado localmente con análisis visual</small>
+              <input id="photo" type="file" accept="image/*" />
+            </label>
+            <img id="preview" class="single-preview" alt="Vista previa de la prenda" />
+            <p id="colorHint" class="status-note" hidden></p>
+
+            <div class="form-grid">
+              <label>
+                Nombre
+                <input id="name" placeholder="Ej. sudadera gris oversize" autocomplete="off" />
+              </label>
+              <label>
+                Color
+                <input id="color" placeholder="Detectado al subir foto" autocomplete="off" />
+              </label>
+              <label>
+                Tipo
+                <select id="type"></select>
+              </label>
+              <label>
+                Estilo
+                <select id="style"></select>
+              </label>
+              <label>
+                Temporada
+                <select id="season"></select>
+              </label>
+            </div>
+            <button class="primary full" type="submit">Guardar prenda</button>
+          </form>
+
+          <div id="closetScanPanel" class="capture-mode">
+            <p class="section-copy">Crea prendas desde una foto del armario: selecciona una zona, revisa el recorte y guárdalo como prenda independiente.</p>
+            <label class="upload-drop closet" for="closetPhoto">
+              <span>Subir foto del armario</span>
+              <small>Recorte manual ahora; preparado para IA visual en una fase posterior</small>
+              <input id="closetPhoto" type="file" accept="image/*" />
+            </label>
+
+            <div id="closetWorkspace" class="closet-workspace" hidden>
+              <div class="crop-guide" aria-label="Cómo recortar prendas">
+                <span>1. Arrastra sobre una prenda</span>
+                <span>2. Revisa el recorte</span>
+                <span>3. Guarda y repite</span>
+              </div>
+              <div id="cropStage" class="crop-stage">
+                <img id="closetPreview" alt="Foto del armario para recortar" />
+                <div id="cropSelection" class="crop-selection" hidden></div>
+                <div id="cropHint" class="crop-hint">Arrastra para seleccionar una prenda</div>
+              </div>
+              <div id="cropPreviewPanel" class="crop-preview-panel" hidden>
+                <img id="cropPreview" alt="Preview del recorte seleccionado" />
+                <div>
+                  <p class="eyebrow">Recorte listo</p>
+                  <strong id="cropPreviewTitle">Prenda seleccionada</strong>
+                  <small id="cropPreviewMeta">Analizando color del recorte</small>
+                </div>
+              </div>
+              <div class="crop-actions">
+                <button id="createCropDraft" class="primary" type="button" disabled>Crear prenda desde recorte</button>
+                <button id="resetCropSelection" class="ghost" type="button">Cancelar recorte</button>
+              </div>
+            </div>
+
+            <p id="scanStatus" class="status-note" aria-live="polite">Sube una foto y arrastra sobre una prenda para crear un recorte.</p>
+          </div>
+        </section>
+
+        <section id="outfitBuilder" class="surface outfit-panel" aria-label="Recomendador de outfits">
+          <div class="section-heading">
+            <p class="eyebrow">Outfit engine</p>
+            <h2>Qué me pongo hoy</h2>
+          </div>
+          <div class="outfit-controls">
             <label>
               Ocasión
-              <select id="occasion">
-                <option>clase</option>
-                <option>trabajo</option>
-                <option>cita</option>
-                <option>fiesta</option>
-                <option>paseo</option>
-                <option>viaje</option>
-              </select>
+              <select id="occasion"></select>
             </label>
             <label>
               Clima
-              <select id="climate">
-                <option>soleado</option>
-                <option>lluvia</option>
-                <option selected>frío</option>
-                <option>calor</option>
-                <option>nublado</option>
-              </select>
+              <select id="climate"></select>
             </label>
             <label>
               Temperatura
-              <input id="temperature" type="number" value="14" min="-10" max="45" />
-            </label>
-          </div>
-          <button id="recommendButton" type="button">Recomendar outfit</button>
-
-          <div id="result" class="result" aria-live="polite" hidden>
-            <div>
-              <p class="eyebrow dark">Look recomendado</p>
-              <h3>Tu outfit de hoy</h3>
-            </div>
-            <div id="outfit" class="outfit-grid"></div>
-            <p id="explanation"></p>
-          </div>
-        </section>
-
-        <section class="panel" aria-label="Prendas pendientes">
-          <div class="section-heading inline">
-            <div>
-              <p class="eyebrow">Revisión</p>
-              <h2>Prendas pendientes</h2>
-            </div>
-            <span id="pendingBadge" class="badge">0</span>
-          </div>
-          <div id="pendingGallery" class="pending-gallery"></div>
-          <div class="pending-footer">
-            <button id="confirmAllPending" class="secondary" type="button">Confirmar todo</button>
-          </div>
-        </section>
-
-        <section class="panel wardrobe-panel" aria-label="Armario visual">
-          <div class="section-heading inline">
-            <div>
-              <p class="eyebrow">Colección</p>
-              <h2>Mi armario visual</h2>
-            </div>
-            <button id="clearWardrobe" class="ghost danger" type="button">Borrar armario</button>
-          </div>
-          <div class="wardrobe-tools" aria-label="Filtros del armario">
-            <label>
-              Buscar
-              <input id="wardrobeSearch" type="search" placeholder="Nombre, color o estilo" autocomplete="off" />
-            </label>
-            <label>
-              Tipo
-              <select id="wardrobeTypeFilter"></select>
+              <input id="temperature" type="number" value="18" min="-10" max="45" />
             </label>
             <label>
               Estilo
-              <select id="wardrobeStyleFilter"></select>
-            </label>
-            <label>
-              Orden
-              <select id="wardrobeSort">
-                <option value="recent">Más recientes</option>
-                <option value="name">Nombre A-Z</option>
-                <option value="least-used">Menos recomendadas</option>
+              <select id="outfitStyle">
+                <option value="cualquiera">cualquiera</option>
               </select>
             </label>
           </div>
-          <p id="wardrobeSummary" class="collection-summary" aria-live="polite"></p>
-          <div id="wardrobe" class="wardrobe"></div>
+          <button id="recommendButton" class="primary full" type="button">Generar outfit</button>
+          <p id="outfitFeedback" class="status-note compact" hidden></p>
+
+          <div id="result" class="outfit-result" aria-live="polite" hidden>
+            <div class="result-head">
+              <div>
+                <p class="eyebrow">Look recomendado</p>
+                <h3>Tu outfit</h3>
+              </div>
+              <button id="anotherOutfitButton" class="ghost" type="button">Generar otra opción</button>
+            </div>
+            <div id="outfitPieces" class="outfit-grid"></div>
+            <p id="explanation" class="explanation"></p>
+            <div class="result-actions">
+              <button id="saveOutfitButton" class="primary" type="button">Guardar outfit</button>
+              <button id="wearOutfitButton" class="secondary" type="button">Marcar como usado</button>
+            </div>
+          </div>
         </section>
+      </section>
+
+      <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
+
+      <section class="surface draft-section" aria-label="Revisión asistida">
+        <div class="section-heading inline">
+          <div>
+            <p class="eyebrow">Revisión asistida</p>
+            <h2>Prendas listas para guardar</h2>
+          </div>
+          <div class="inline-actions">
+            <span id="pendingBadge" class="count-pill">0</span>
+            <button id="confirmAllPending" class="secondary" type="button">Guardar todo</button>
+            <button id="clearPending" class="ghost danger" type="button">Vaciar</button>
+          </div>
+        </div>
+        <div id="pendingGallery" class="draft-gallery"></div>
+      </section>
+
+      <section id="wardrobeSection" class="surface wardrobe-panel app-screen" aria-label="Armario visual">
+        <div class="section-heading inline">
+          <div>
+            <p class="eyebrow">Armario visual</p>
+            <h2>Tu colección</h2>
+          </div>
+          <div class="stats-strip">
+            <span><strong id="totalItems">0</strong> prendas</span>
+            <span><strong id="pendingItems">0</strong> pendientes</span>
+          </div>
+        </div>
+
+        <div class="wardrobe-tools" aria-label="Filtros del armario">
+          <label>
+            Buscar
+            <input id="wardrobeSearch" type="search" placeholder="Nombre, color o estilo" autocomplete="off" />
+          </label>
+          <label>
+            Tipo
+            <select id="wardrobeTypeFilter"></select>
+          </label>
+          <label>
+            Estilo
+            <select id="wardrobeStyleFilter"></select>
+          </label>
+          <label>
+            Temporada
+            <select id="wardrobeSeasonFilter"></select>
+          </label>
+          <label>
+            Color
+            <select id="wardrobeColorFilter"></select>
+          </label>
+          <label>
+            Orden
+            <select id="wardrobeSort">
+              <option value="recent">Más recientes</option>
+              <option value="name">Nombre A-Z</option>
+              <option value="least-used">Menos usadas</option>
+              <option value="most-used">Más usadas</option>
+            </select>
+          </label>
+        </div>
+
+        <div class="collection-bar">
+          <p id="wardrobeSummary" aria-live="polite"></p>
+          <button id="clearWardrobe" class="ghost danger" type="button">Borrar armario</button>
+        </div>
+        <div id="wardrobe" class="wardrobe-grid"></div>
+      </section>
+
+      <section id="historySection" class="surface history-panel app-screen" aria-label="Historial de outfits">
+        <div class="section-heading inline">
+          <div>
+            <p class="eyebrow">Favoritos e historial</p>
+            <h2>Últimos outfits</h2>
+          </div>
+          <span id="outfitCount" class="count-pill">0</span>
+        </div>
+        <div id="outfitHistory" class="history-list"></div>
       </section>
     </main>
   </div>
+
+  <nav class="bottom-nav" aria-label="Navegación principal">
+    <a class="active" href="#home" data-nav-target="home">
+      <span></span>
+      Inicio
+    </a>
+    <a href="#wardrobeSection" data-nav-target="wardrobeSection">
+      <span></span>
+      Armario
+    </a>
+    <a href="#outfitBuilder" data-nav-target="outfitBuilder">
+      <span></span>
+      Outfit
+    </a>
+    <a href="#historySection" data-nav-target="historySection">
+      <span></span>
+      Historial
+    </a>
+  </nav>
+
+  <dialog id="editDialog" class="edit-dialog">
+    <form id="editItemForm" method="dialog">
+      <div class="section-heading inline">
+        <div>
+          <p class="eyebrow">Editar prenda</p>
+          <h2>Ajustar datos</h2>
+        </div>
+        <button id="closeEditDialog" class="icon-button" type="button" aria-label="Cerrar">×</button>
+      </div>
+      <input id="editItemId" type="hidden" />
+      <div class="form-grid">
+        <label>
+          Nombre
+          <input id="editName" autocomplete="off" />
+        </label>
+        <label>
+          Color
+          <input id="editColor" autocomplete="off" />
+        </label>
+        <label>
+          Tipo
+          <select id="editType"></select>
+        </label>
+        <label>
+          Estilo
+          <select id="editStyle"></select>
+        </label>
+        <label>
+          Temporada
+          <select id="editSeason"></select>
+        </label>
+      </div>
+      <button class="primary full" type="submit">Guardar cambios</button>
+    </form>
+  </dialog>
 </body>
 </html>
