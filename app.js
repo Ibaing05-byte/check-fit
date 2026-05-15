@@ -33,8 +33,14 @@ import {
   updateWardrobeSummary
 } from "./wardrobe.js";
 
-const DEFAULT_API_BASE_URL = "http://localhost:3000";
+const DEFAULT_API_BASE_URL = "https://check-fit.onrender.com";
 const API_BASE_STORAGE_KEY = "sacloApiBaseUrl";
+const LEGACY_LOCAL_API_URLS = new Set([
+  "http://localhost:3000",
+  "http://localhost:3001",
+  "http://127.0.0.1:3000",
+  "http://127.0.0.1:3001"
+]);
 const MAX_ANALYSIS_SIDE = 1400;
 const MAX_CLIENT_IMAGE_MB = 5.5;
 
@@ -208,7 +214,7 @@ function bindEvents() {
 }
 
 function saveApiBaseUrl() {
-  const nextUrl = normalizeApiBaseUrl(elements.apiBaseUrl.value);
+  const nextUrl = resolveApiBaseUrl(elements.apiBaseUrl.value);
   writeLocalValue(API_BASE_STORAGE_KEY, nextUrl);
   elements.apiBaseUrl.value = nextUrl;
   showStatus(elements.apiConnectionStatus, `Backend configurado en ${nextUrl}.`);
@@ -216,7 +222,7 @@ function saveApiBaseUrl() {
 }
 
 async function testApiConnection() {
-  const apiBaseUrl = normalizeApiBaseUrl(elements.apiBaseUrl.value);
+  const apiBaseUrl = resolveApiBaseUrl(elements.apiBaseUrl.value);
   elements.apiBaseUrl.value = apiBaseUrl;
   setButtonLoading(elements.testApiConnection, "Probando...");
   showStatus(elements.apiConnectionStatus, "Comprobando conexión con el backend de análisis visual.");
@@ -1035,11 +1041,25 @@ function getVisionErrorMessage(payload, status) {
 }
 
 function getApiBaseUrl() {
-  return normalizeApiBaseUrl(readLocalValue(API_BASE_STORAGE_KEY, window.SACLO_API_BASE || DEFAULT_API_BASE_URL));
+  const injectedUrl = normalizeApiBaseUrl(window.SACLO_API_BASE);
+  if (injectedUrl) return injectedUrl;
+
+  const storedUrl = normalizeApiBaseUrl(readLocalValue(API_BASE_STORAGE_KEY, ""));
+  if (storedUrl && !LEGACY_LOCAL_API_URLS.has(storedUrl)) return storedUrl;
+  if (storedUrl && LEGACY_LOCAL_API_URLS.has(storedUrl)) {
+    writeLocalValue(API_BASE_STORAGE_KEY, DEFAULT_API_BASE_URL);
+  }
+
+  return DEFAULT_API_BASE_URL;
+}
+
+function resolveApiBaseUrl(value) {
+  return normalizeApiBaseUrl(value) || DEFAULT_API_BASE_URL;
 }
 
 function normalizeApiBaseUrl(value) {
-  const raw = String(value || "").trim() || DEFAULT_API_BASE_URL;
+  const raw = String(value || "").trim();
+  if (!raw) return "";
   return raw.replace(/\/+$/, "");
 }
 

@@ -38,7 +38,7 @@ Cuando el backend esté activo, la sección `IA beta` permite configurar la URL 
 Por defecto usa:
 
 ```text
-http://localhost:3000
+https://check-fit.onrender.com
 ```
 
 Desde la app puedes:
@@ -49,7 +49,7 @@ Desde la app puedes:
 4. Usar `Analizar con IA` en prenda individual.
 5. Usar `Analizar armario con IA` desde una foto de armario.
 
-Si el análisis falla, SACLO muestra un error claro y mantiene el flujo local.
+Si el análisis falla, SACLO muestra un error claro y mantiene el flujo local. Los valores antiguos de desarrollo como `http://localhost:3000` se migran automáticamente al backend online de Render.
 
 ## Backend
 
@@ -76,6 +76,12 @@ Endpoint de salud:
 
 ```bash
 curl http://localhost:3000/api/health
+```
+
+Cuando el backend esté desplegado en Render:
+
+```bash
+curl https://check-fit.onrender.com/api/health
 ```
 
 Respuesta esperada:

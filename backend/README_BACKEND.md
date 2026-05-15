@@ -44,6 +44,12 @@ Salud:
 curl http://localhost:3000/api/health
 ```
 
+Backend online esperado para producción:
+
+```bash
+curl https://check-fit.onrender.com/api/health
+```
+
 Respuesta:
 
 ```json
