@@ -236,7 +236,7 @@ function matches(text, words) {
 }
 
 function placeholder(item) {
-  const label = encodeForSvg(item.name || "Check Fit");
+  const label = encodeForSvg(item.name || "SACLO");
   const type = encodeForSvg(item.type || "prenda");
   const color = encodeForSvg(item.color || "sin color");
 

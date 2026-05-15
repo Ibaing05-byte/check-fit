@@ -5,34 +5,40 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta name="theme-color" content="#08090d" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
-  <title>Check Fit</title>
+  <title>SACLO</title>
+  <link rel="icon" type="image/png" href="assets/app-icon-saclo.png" />
+  <link rel="apple-touch-icon" href="assets/app-icon-saclo.png" />
   <link rel="stylesheet" href="styles.css" />
   <script type="module" src="app.js"></script>
 </head>
 <body>
   <div class="app-shell">
-    <header id="home" class="app-hero app-screen" aria-label="Inicio de Check Fit">
+    <header id="home" class="app-hero app-screen" aria-label="Inicio de SACLO">
       <nav class="topbar" aria-label="Resumen de producto">
-        <span class="brand-mark">Check Fit</span>
-        <span class="beta-pill">Beta privada</span>
+        <a class="brand-lockup" href="#home" aria-label="SACLO">
+          <img class="brand-logo" src="assets/app-icon-saclo.png" alt="SACLO" />
+          <span class="brand-mark">SACLO</span>
+        </a>
+        <span class="beta-pill">Private beta</span>
       </nav>
       <section class="hero-grid">
         <div class="hero-copy">
-          <p class="eyebrow">Fashion-tech para tu armario real</p>
-          <h1>La forma más rápida e inteligente de decidir qué ponerte.</h1>
-          <p>Sube tus prendas, crea looks útiles para tu día y prepara tu armario para una futura capa de IA visual sin fingir automatizaciones que todavía no existen.</p>
+          <img class="hero-brand-logo" src="assets/logo-saclo.png" alt="SACLO" />
+          <p class="eyebrow">Tu armario inteligente impulsado por IA</p>
+          <h1>Less effort. Better outfits.</h1>
+          <p>SACLO convierte tu armario real en decisiones rápidas, looks útiles y una experiencia visual preparada para IA.</p>
           <div class="hero-actions">
             <a class="button-link primary" href="#capture">Añadir ropa</a>
             <a class="button-link secondary" href="#outfitBuilder">Crear outfit</a>
           </div>
         </div>
-        <div class="hero-phone" aria-label="Vista resumida de Check Fit">
+        <div class="hero-phone" aria-label="Vista resumida de SACLO">
           <div class="phone-status">
             <span>Hoy</span>
             <strong id="heroItemCount">0 prendas</strong>
           </div>
           <div class="look-stack" id="heroLookStack"></div>
-          <p>Recomendaciones con clima, estilo, color y rotación de uso.</p>
+          <p>IA, clima, estilo y rotación de uso en una sola decisión.</p>
         </div>
       </section>
 
@@ -93,7 +99,7 @@
         <article>
           <span>03</span>
           <strong>Guarda favoritos</strong>
-          <p>Marca looks usados y deja que Check Fit rote mejor.</p>
+          <p>Marca looks usados y deja que SACLO rote mejor.</p>
         </article>
       </section>
 
@@ -110,7 +116,7 @@
           </div>
 
           <form id="singleItemForm" class="capture-mode active">
-            <p class="section-copy">Sube una prenda. Check Fit propone nombre, color y categoría; tú decides el ajuste final.</p>
+            <p class="section-copy">Sube una prenda. SACLO propone nombre, color y categoría; tú decides el ajuste final.</p>
             <label class="upload-drop" for="photo">
               <span>Subir foto de prenda</span>
               <small>Color calculado localmente con análisis visual</small>
@@ -118,6 +124,14 @@
             </label>
             <img id="preview" class="single-preview" alt="Vista previa de la prenda" />
             <p id="colorHint" class="status-note" hidden></p>
+            <div class="ai-panel">
+              <div>
+                <p class="eyebrow">Análisis visual en beta</p>
+                <small>Revisa los resultados antes de guardar. La IA puede equivocarse con fotos oscuras o prendas superpuestas.</small>
+              </div>
+              <button id="analyzeSingleAI" class="secondary" type="button" disabled>Analizar con IA</button>
+            </div>
+            <p id="aiSingleStatus" class="status-note" hidden></p>
 
             <div class="form-grid">
               <label>
@@ -151,6 +165,14 @@
               <small>Recorte manual ahora; preparado para IA visual en una fase posterior</small>
               <input id="closetPhoto" type="file" accept="image/*" />
             </label>
+            <div class="ai-panel">
+              <div>
+                <p class="eyebrow">Análisis visual en beta</p>
+                <small>Detecta prendas visibles y las manda a revisión. Si la foto es confusa, usa el recorte manual.</small>
+              </div>
+              <button id="analyzeClosetAI" class="secondary" type="button" disabled>Analizar con IA</button>
+            </div>
+            <p id="aiClosetStatus" class="status-note" hidden></p>
 
             <div id="closetWorkspace" class="closet-workspace" hidden>
               <div class="crop-guide" aria-label="Cómo recortar prendas">

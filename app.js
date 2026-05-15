@@ -33,6 +33,8 @@ import {
   updateWardrobeSummary
 } from "./wardrobe.js";
 
+const AI_API_BASE = window.SACLO_API_BASE || "http://localhost:3001";
+
 const elements = {
   heroItemCount: document.getElementById("heroItemCount"),
   heroLookStack: document.getElementById("heroLookStack"),
@@ -54,12 +56,16 @@ const elements = {
   photo: document.getElementById("photo"),
   preview: document.getElementById("preview"),
   colorHint: document.getElementById("colorHint"),
+  analyzeSingleAI: document.getElementById("analyzeSingleAI"),
+  aiSingleStatus: document.getElementById("aiSingleStatus"),
   name: document.getElementById("name"),
   color: document.getElementById("color"),
   type: document.getElementById("type"),
   style: document.getElementById("style"),
   season: document.getElementById("season"),
   closetPhoto: document.getElementById("closetPhoto"),
+  analyzeClosetAI: document.getElementById("analyzeClosetAI"),
+  aiClosetStatus: document.getElementById("aiClosetStatus"),
   closetWorkspace: document.getElementById("closetWorkspace"),
   cropStage: document.getElementById("cropStage"),
   closetPreview: document.getElementById("closetPreview"),
@@ -161,8 +167,10 @@ function bindEvents() {
   elements.singleModeButton.addEventListener("click", () => setCaptureMode("single"));
   elements.closetModeButton.addEventListener("click", () => setCaptureMode("closet"));
   elements.photo.addEventListener("change", previewSinglePhoto);
+  elements.analyzeSingleAI.addEventListener("click", analyzeSingleWithAI);
   elements.singleItemForm.addEventListener("submit", addSingleItem);
   elements.closetPhoto.addEventListener("change", previewClosetPhoto);
+  elements.analyzeClosetAI.addEventListener("click", analyzeClosetWithAI);
   elements.cropStage.addEventListener("pointerdown", startCropDrag);
   elements.createCropDraft.addEventListener("click", createDraftFromCrop);
   elements.resetCropSelection.addEventListener("click", resetCropSelection);
@@ -212,6 +220,7 @@ async function previewSinglePhoto(event) {
   elements.style.value = inferStyle(fileText);
   elements.season.value = inferSeason(fileText);
   elements.color.value = fileColor || detectedColor || elements.color.value;
+  elements.analyzeSingleAI.disabled = false;
   showStatus(
     elements.colorHint,
     fileColor
@@ -220,6 +229,34 @@ async function previewSinglePhoto(event) {
         ? `Color detectado por análisis visual: ${detectedColor}. Puedes corregirlo si quieres.`
         : "No he podido detectar un color claro. Puedes escribirlo manualmente."
   );
+}
+
+async function analyzeSingleWithAI() {
+  if (!selectedPhoto) {
+    showStatus(elements.aiSingleStatus, "Sube una foto de prenda antes de analizar con IA.");
+    return;
+  }
+
+  setButtonLoading(elements.analyzeSingleAI, "Analizando...");
+  showStatus(elements.aiSingleStatus, "Análisis visual en beta en curso. Revisa los resultados antes de guardar.");
+
+  try {
+    const payload = await requestVisionAnalysis("/api/analyze-garment", selectedPhoto);
+    const garment = payload.garment;
+    applyGarmentSuggestion(garment);
+    showStatus(
+      elements.aiSingleStatus,
+      `Resultado listo con ${formatConfidence(garment.confidence)} de confianza. ${garment.description} Revisa los campos antes de guardar.`
+    );
+    showToast("Análisis visual aplicado. Revisa y guarda cuando encaje.");
+  } catch (error) {
+    showStatus(
+      elements.aiSingleStatus,
+      `${error.message} Puedes seguir con el autocompletado local o el recorte manual.`
+    );
+  } finally {
+    setButtonReady(elements.analyzeSingleAI, "Analizar con IA", Boolean(selectedPhoto));
+  }
 }
 
 function addSingleItem(event) {
@@ -248,8 +285,62 @@ async function previewClosetPhoto(event) {
   closetImage = await fileToDataUrl(file);
   elements.closetPreview.src = closetImage;
   elements.closetWorkspace.hidden = false;
+  elements.analyzeClosetAI.disabled = false;
   resetCropSelection();
   elements.scanStatus.textContent = "Arrastra sobre una prenda. Verás una preview antes de guardarla.";
+  showStatus(elements.aiClosetStatus, "Análisis visual en beta disponible. La IA puede equivocarse si las prendas están superpuestas.");
+}
+
+async function analyzeClosetWithAI() {
+  if (!closetImage) {
+    showStatus(elements.aiClosetStatus, "Sube una foto del armario antes de analizar con IA.");
+    return;
+  }
+
+  setButtonLoading(elements.analyzeClosetAI, "Analizando...");
+  showStatus(elements.aiClosetStatus, "Analizando prendas visibles. Revisa los resultados antes de guardar.");
+
+  try {
+    const payload = await requestVisionAnalysis("/api/analyze-closet", closetImage);
+    const detected = Array.isArray(payload.garments) ? payload.garments : [];
+
+    if (!detected.length) {
+      showStatus(
+        elements.aiClosetStatus,
+        payload.message || "La imagen es confusa. Usa el recorte manual para crear prendas con más precisión."
+      );
+      return;
+    }
+
+    drafts = [
+      ...detected.map(garment => createDraftItem({
+        name: garment.name,
+        color: garment.color,
+        type: garment.type,
+        style: garment.style,
+        season: garment.season,
+        photo: closetImage,
+        source: `Análisis visual en beta · ${formatConfidence(garment.confidence)}`
+      })),
+      ...drafts
+    ];
+
+    saveDrafts(drafts);
+    renderAll();
+    showStatus(
+      elements.aiClosetStatus,
+      `${detected.length} prendas detectadas. ${payload.message || "Revisa los resultados antes de guardar."}`
+    );
+    elements.scanStatus.textContent = "También puedes seguir usando recorte asistido sobre la misma foto.";
+    showToast("Prendas detectadas y enviadas a revisión.");
+  } catch (error) {
+    showStatus(
+      elements.aiClosetStatus,
+      `${error.message} El recorte manual sigue disponible como fallback.`
+    );
+  } finally {
+    setButtonReady(elements.analyzeClosetAI, "Analizar con IA", Boolean(closetImage));
+  }
 }
 
 function startCropDrag(event) {
@@ -394,6 +485,8 @@ function resetSingleForm() {
   elements.preview.removeAttribute("src");
   elements.preview.classList.remove("visible");
   elements.colorHint.hidden = true;
+  elements.aiSingleStatus.hidden = true;
+  elements.analyzeSingleAI.disabled = true;
   selectedPhoto = "";
 }
 
@@ -813,6 +906,63 @@ function showToast(message) {
     elements.toast.classList.remove("visible");
     elements.toast.hidden = true;
   }, 2600);
+}
+
+async function requestVisionAnalysis(endpoint, imageDataUrl) {
+  const formData = new FormData();
+  const blob = await dataUrlToBlob(imageDataUrl);
+  formData.append("image", blob, "saclo-image.jpg");
+
+  let response;
+  try {
+    response = await fetch(`${AI_API_BASE}${endpoint}`, {
+      method: "POST",
+      body: formData
+    });
+  } catch {
+    throw new Error("El backend de IA no está activo o no permite la conexión.");
+  }
+
+  const payload = await response.json().catch(() => ({}));
+
+  if (!response.ok || payload.ok === false) {
+    throw new Error(payload.error || "No se pudo completar el análisis visual en beta.");
+  }
+
+  return payload;
+}
+
+function applyGarmentSuggestion(garment) {
+  if (!garment) return;
+
+  elements.name.value = garment.name || elements.name.value;
+  elements.color.value = garment.color || elements.color.value;
+  if (TYPES.includes(garment.type)) elements.type.value = garment.type;
+  if (STYLES.includes(garment.style)) elements.style.value = garment.style;
+  if (SEASONS.includes(garment.season)) elements.season.value = garment.season;
+}
+
+async function dataUrlToBlob(dataUrl) {
+  const response = await fetch(dataUrl);
+  return response.blob();
+}
+
+function formatConfidence(confidence) {
+  const value = Math.round((Number(confidence) || 0) * 100);
+  return `${value}%`;
+}
+
+function setButtonLoading(button, text) {
+  button.dataset.readyText = button.textContent;
+  button.textContent = text;
+  button.disabled = true;
+  button.classList.add("loading");
+}
+
+function setButtonReady(button, text, enabled = true) {
+  button.textContent = text || button.dataset.readyText || button.textContent;
+  button.disabled = !enabled;
+  button.classList.remove("loading");
 }
 
 function clampPoint(clientX, clientY, rect) {

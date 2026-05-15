@@ -206,7 +206,7 @@ function colorHarmonyScore(color, selectedColors) {
 
 function buildExplanation(pieces, requiredGroups, context) {
   if (!pieces.length) {
-    return "Añade algunas prendas clasificadas para que Check Fit pueda combinar clima, ocasión, estilo y color.";
+    return "Añade algunas prendas clasificadas para que SACLO pueda combinar clima, ocasión, estilo y color.";
   }
 
   const colors = pieces.map(piece => piece.color).filter(Boolean);

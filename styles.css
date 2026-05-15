@@ -1,17 +1,17 @@
 :root {
-  --bg: #08090d;
-  --bg-elevated: #101119;
-  --panel: #151722;
-  --panel-soft: #1c1e2b;
-  --ink: #f8f4ec;
-  --muted: #a7a8b4;
-  --subtle: #737684;
+  --bg: #0f1115;
+  --bg-elevated: #151820;
+  --panel: #191c23;
+  --panel-soft: #2b2f36;
+  --ink: #f5f5f2;
+  --muted: #b7b8b8;
+  --subtle: #7c8088;
   --line: rgba(255, 255, 255, 0.11);
   --strong-line: rgba(255, 255, 255, 0.18);
-  --accent: #d7ff68;
-  --accent-ink: #101205;
-  --hot: #ff4f9a;
-  --blue: #70d6ff;
+  --accent: #5b8cff;
+  --accent-ink: #f5f5f2;
+  --hot: #d8c3a5;
+  --blue: #5b8cff;
   --danger: #ff776d;
   --shadow: 0 24px 70px rgba(0, 0, 0, 0.36);
 }
@@ -30,8 +30,8 @@ body {
   min-height: 100vh;
   font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   background:
-    linear-gradient(140deg, rgba(215, 255, 104, 0.08), transparent 32%),
-    linear-gradient(220deg, rgba(255, 79, 154, 0.08), transparent 36%),
+    linear-gradient(140deg, rgba(91, 140, 255, 0.09), transparent 32%),
+    linear-gradient(220deg, rgba(216, 195, 165, 0.08), transparent 36%),
     var(--bg);
   color: var(--ink);
 }
@@ -74,13 +74,29 @@ button:disabled {
   transform: none;
 }
 
+button.loading {
+  position: relative;
+  overflow: hidden;
+}
+
+button.loading::after {
+  content: "";
+  position: absolute;
+  inset: auto 12px 8px;
+  height: 2px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, transparent, currentColor, transparent);
+  opacity: 0.42;
+  animation: buttonScan 1s ease-in-out infinite;
+}
+
 .primary {
   background: var(--accent);
   color: var(--accent-ink);
 }
 
 .secondary {
-  background: #2c3242;
+  background: var(--panel-soft);
   color: var(--ink);
 }
 
@@ -125,11 +141,11 @@ input::placeholder {
 input:focus,
 select:focus {
   border-color: var(--accent);
-  box-shadow: 0 0 0 3px rgba(215, 255, 104, 0.14);
+  box-shadow: 0 0 0 3px rgba(91, 140, 255, 0.16);
 }
 
 select option {
-  background: #151722;
+  background: var(--panel);
   color: var(--ink);
 }
 
@@ -151,9 +167,36 @@ select option {
   margin-bottom: 18px;
 }
 
+.brand-lockup {
+  display: inline-flex;
+  gap: 10px;
+  align-items: center;
+  min-height: 40px;
+  color: var(--ink);
+  text-decoration: none;
+}
+
 .brand-mark {
   font-size: 18px;
   font-weight: 950;
+}
+
+.brand-logo {
+  display: block;
+  width: 34px;
+  height: 34px;
+  border-radius: 8px;
+  object-fit: cover;
+}
+
+.hero-brand-logo {
+  display: block;
+  width: min(220px, 62vw);
+  max-height: 96px;
+  margin-bottom: 16px;
+  object-fit: contain;
+  border-radius: 8px;
+  opacity: 0.96;
 }
 
 .beta-pill,
@@ -177,7 +220,7 @@ select option {
   border: 1px solid var(--line);
   border-radius: 8px;
   background:
-    linear-gradient(rgba(8, 9, 13, 0.3), rgba(8, 9, 13, 0.92)),
+    linear-gradient(rgba(15, 17, 21, 0.24), rgba(15, 17, 21, 0.94)),
     url("https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?auto=format&fit=crop&w=1800&q=82") center 24% / cover;
   box-shadow: var(--shadow);
   overflow: hidden;
@@ -406,7 +449,7 @@ select option {
 .outfit-piece:hover,
 .history-item:hover,
 .onboarding article:hover {
-  border-color: rgba(215, 255, 104, 0.2);
+  border-color: rgba(91, 140, 255, 0.2);
   transform: translateY(-2px);
 }
 
@@ -532,9 +575,9 @@ select option {
   min-height: 112px;
   place-items: center;
   padding: 18px;
-  border: 1px dashed rgba(215, 255, 104, 0.42);
+  border: 1px dashed rgba(91, 140, 255, 0.42);
   border-radius: 8px;
-  background: linear-gradient(135deg, rgba(215, 255, 104, 0.12), rgba(112, 214, 255, 0.08));
+  background: linear-gradient(135deg, rgba(91, 140, 255, 0.12), rgba(216, 195, 165, 0.08));
   color: var(--ink);
   text-align: center;
   cursor: pointer;
@@ -560,6 +603,25 @@ select option {
   height: 1px;
   opacity: 0;
   pointer-events: none;
+}
+
+.ai-panel {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: center;
+  padding: 12px;
+  border: 1px solid rgba(91, 140, 255, 0.22);
+  border-radius: 8px;
+  background:
+    linear-gradient(135deg, rgba(91, 140, 255, 0.11), rgba(216, 195, 165, 0.07)),
+    rgba(255, 255, 255, 0.04);
+}
+
+.ai-panel small {
+  display: block;
+  color: var(--muted);
+  line-height: 1.45;
 }
 
 .single-preview {
@@ -596,9 +658,9 @@ select option {
 
 .status-note {
   padding: 11px 12px;
-  border: 1px solid rgba(112, 214, 255, 0.22);
+  border: 1px solid rgba(216, 195, 165, 0.22);
   border-radius: 8px;
-  background: rgba(112, 214, 255, 0.08);
+  background: rgba(216, 195, 165, 0.08);
 }
 
 .status-note.compact {
@@ -672,8 +734,8 @@ select option {
   position: absolute;
   border: 2px solid var(--accent);
   border-radius: 8px;
-  background: rgba(215, 255, 104, 0.16);
-  box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.48), 0 0 34px rgba(215, 255, 104, 0.38);
+  background: rgba(91, 140, 255, 0.16);
+  box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.48), 0 0 34px rgba(91, 140, 255, 0.38);
   pointer-events: none;
   z-index: 2;
   animation: cropPulse 1.8s ease-in-out infinite;
@@ -714,7 +776,7 @@ select option {
   padding: 10px 12px;
   border: 1px solid var(--strong-line);
   border-radius: 8px;
-  background: rgba(8, 9, 13, 0.72);
+  background: rgba(15, 17, 21, 0.72);
   color: var(--ink);
   font-size: 13px;
   font-weight: 850;
@@ -732,9 +794,9 @@ select option {
   gap: 12px;
   align-items: center;
   padding: 10px;
-  border: 1px solid rgba(215, 255, 104, 0.28);
+  border: 1px solid rgba(91, 140, 255, 0.28);
   border-radius: 8px;
-  background: rgba(215, 255, 104, 0.08);
+  background: rgba(91, 140, 255, 0.08);
 }
 
 .crop-preview-panel[hidden] {
@@ -776,7 +838,7 @@ select option {
 .draft-gallery:empty::before,
 .wardrobe-grid:empty::before,
 .history-list:empty::before {
-  content: "Listo para empezar. Añade una prenda y Check Fit cobra vida.";
+  content: "Listo para empezar. Añade una prenda y SACLO cobra vida.";
   padding: 22px;
   border: 1px dashed var(--line);
   border-radius: 8px;
@@ -950,7 +1012,7 @@ select option {
   transform: translate(-50%, 18px);
   max-width: min(420px, calc(100% - 28px));
   padding: 12px 14px;
-  border: 1px solid rgba(215, 255, 104, 0.32);
+  border: 1px solid rgba(91, 140, 255, 0.32);
   border-radius: 8px;
   background: rgba(16, 17, 25, 0.94);
   color: var(--ink);
@@ -1008,7 +1070,7 @@ select option {
 }
 
 .bottom-nav a.active {
-  background: rgba(215, 255, 104, 0.12);
+  background: rgba(91, 140, 255, 0.12);
   color: var(--ink);
 }
 
@@ -1023,6 +1085,16 @@ select option {
 
   50% {
     border-color: var(--blue);
+  }
+}
+
+@keyframes buttonScan {
+  0%, 100% {
+    transform: translateX(-60%);
+  }
+
+  50% {
+    transform: translateX(60%);
   }
 }
 
@@ -1066,8 +1138,8 @@ select option {
 @media (max-width: 680px) {
   body {
     background:
-      linear-gradient(160deg, rgba(215, 255, 104, 0.08), transparent 28%),
-      linear-gradient(12deg, rgba(112, 214, 255, 0.07), transparent 30%),
+      linear-gradient(160deg, rgba(91, 140, 255, 0.08), transparent 28%),
+      linear-gradient(12deg, rgba(216, 195, 165, 0.07), transparent 30%),
       var(--bg);
   }
 
@@ -1097,6 +1169,7 @@ select option {
 
   .onboarding,
   .crop-guide,
+  .ai-panel,
   .form-grid,
   .outfit-controls,
   .wardrobe-tools,
