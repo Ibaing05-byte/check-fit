@@ -135,7 +135,9 @@ export function normalizeDraftItem(data) {
     season: validOrDefault(data.season, SEASONS, "entretiempo"),
     photo: data.photo || "",
     createdAt: normalizeTimestamp(data.createdAt, data.id),
-    source: data.source || "Recorte manual"
+    source: data.source || "Recorte manual",
+    confidence: Number(data.confidence || 0),
+    description: String(data.description || "").trim()
   };
 }
 

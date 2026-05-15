@@ -78,15 +78,20 @@ export function renderHistoryItem(outfit, createImageElement, callbacks) {
   const favoriteButton = document.createElement("button");
   favoriteButton.type = "button";
   favoriteButton.className = outfit.favorite ? "mini-button primary" : "mini-button ghost";
-  favoriteButton.textContent = outfit.favorite ? "Favorito" : "Favorito";
+  favoriteButton.textContent = outfit.favorite ? "Favorito" : "Guardar favorito";
   favoriteButton.addEventListener("click", () => callbacks.onFavorite(outfit.id));
+  const reuseButton = document.createElement("button");
+  reuseButton.type = "button";
+  reuseButton.className = "mini-button secondary";
+  reuseButton.textContent = "Usar de nuevo";
+  reuseButton.addEventListener("click", () => callbacks.onReuse(outfit.id));
   const useButton = document.createElement("button");
   useButton.type = "button";
   useButton.className = "mini-button ghost";
   useButton.textContent = "Marcar usado";
   useButton.disabled = Boolean(outfit.wornAt);
   useButton.addEventListener("click", () => callbacks.onWear(outfit.id));
-  actions.append(favoriteButton, useButton);
+  actions.append(favoriteButton, reuseButton, useButton);
 
   item.append(preview, body, actions);
   return item;

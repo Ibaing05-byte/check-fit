@@ -45,13 +45,13 @@
       <section class="home-dashboard" aria-label="Panel de inicio">
         <article class="daily-look-card">
           <div>
-            <p class="eyebrow">Outfit del día</p>
+            <p class="eyebrow">Hoy en SACLO</p>
             <h2 id="dailyTitle">Tu look está esperando</h2>
           </div>
           <div id="dailyLookStack" class="daily-look-stack"></div>
           <p id="dailyMessage">Añade algunas prendas para desbloquear una recomendación diaria más precisa.</p>
           <div class="quick-actions">
-            <button id="dailyCreateButton" class="primary" type="button">Crear outfit</button>
+            <button id="dailyCreateButton" class="primary" type="button">Generar look de hoy</button>
             <a class="button-link secondary" href="#capture">Añadir prenda</a>
           </div>
         </article>
@@ -64,6 +64,7 @@
             <span><strong id="generatedCount">0</strong> looks</span>
           </div>
           <p id="dailyInsight">Tienes prendas listas para construir tu próximo look.</p>
+          <p id="lastWornOutfit" class="last-worn">Último outfit usado: todavía no hay registro.</p>
         </article>
 
         <article class="mini-stats-card">
@@ -136,19 +137,25 @@
 
           <form id="singleItemForm" class="capture-mode active">
             <p class="section-copy">Sube una prenda. SACLO propone nombre, color y categoría; tú decides el ajuste final.</p>
+            <div class="photo-tips" aria-label="Consejos para analizar mejor">
+              <span>Buena luz</span>
+              <span>Fondo claro</span>
+              <span>Prenda separada</span>
+            </div>
             <label class="upload-drop" for="photo">
               <span>Subir foto de prenda</span>
-              <small>Color calculado localmente con análisis visual</small>
+              <small>Mejor con buena luz, prendas separadas y fondo claro</small>
               <input id="photo" type="file" accept="image/*" />
             </label>
             <img id="preview" class="single-preview" alt="Vista previa de la prenda" />
             <p id="colorHint" class="status-note" hidden></p>
+            <div id="singleConfidence" class="confidence-row" hidden></div>
             <div class="ai-panel">
               <div>
-                <p class="eyebrow">Análisis visual en beta</p>
+                <p class="eyebrow">IA visual en beta</p>
                 <small>Revisa los resultados antes de guardar. La IA puede equivocarse con fotos oscuras o prendas superpuestas.</small>
               </div>
-              <button id="analyzeSingleAI" class="secondary" type="button" disabled>Analizar con IA</button>
+              <button id="analyzeSingleAI" class="primary" type="button" disabled>Analizar con IA</button>
             </div>
             <p id="aiSingleStatus" class="status-note" hidden></p>
 
@@ -179,17 +186,22 @@
 
           <div id="closetScanPanel" class="capture-mode">
             <p class="section-copy">Crea prendas desde una foto del armario: selecciona una zona, revisa el recorte y guárdalo como prenda independiente.</p>
+            <div class="photo-tips" aria-label="Consejos para detectar prendas">
+              <span>Buena luz</span>
+              <span>Prendas visibles</span>
+              <span>Menos superposición</span>
+            </div>
             <label class="upload-drop closet" for="closetPhoto">
               <span>Subir foto del armario</span>
-              <small>Análisis visual opcional + recorte manual como fallback</small>
+              <small>Mejor con buena luz, prendas separadas y fondo claro</small>
               <input id="closetPhoto" type="file" accept="image/*" />
             </label>
             <div class="ai-panel">
               <div>
-                <p class="eyebrow">Análisis visual en beta</p>
+                <p class="eyebrow">IA visual en beta</p>
                 <small>Detecta prendas visibles y las manda a revisión. Si la foto es confusa, usa el recorte manual.</small>
               </div>
-              <button id="analyzeClosetAI" class="secondary" type="button" disabled>Analizar armario con IA</button>
+              <button id="analyzeClosetAI" class="primary" type="button" disabled>Detectar prendas con IA</button>
             </div>
             <p id="aiClosetStatus" class="status-note" hidden></p>
 

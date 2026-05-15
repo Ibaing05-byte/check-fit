@@ -55,6 +55,7 @@ const elements = {
   activeDaysCount: document.getElementById("activeDaysCount"),
   generatedCount: document.getElementById("generatedCount"),
   dailyInsight: document.getElementById("dailyInsight"),
+  lastWornOutfit: document.getElementById("lastWornOutfit"),
   homeWardrobeCount: document.getElementById("homeWardrobeCount"),
   unusedItemsCount: document.getElementById("unusedItemsCount"),
   favoriteOutfitCount: document.getElementById("favoriteOutfitCount"),
@@ -69,6 +70,7 @@ const elements = {
   photo: document.getElementById("photo"),
   preview: document.getElementById("preview"),
   colorHint: document.getElementById("colorHint"),
+  singleConfidence: document.getElementById("singleConfidence"),
   analyzeSingleAI: document.getElementById("analyzeSingleAI"),
   aiSingleStatus: document.getElementById("aiSingleStatus"),
   name: document.getElementById("name"),
@@ -278,6 +280,8 @@ async function previewSinglePhoto(event) {
   elements.season.value = inferSeason(fileText);
   elements.color.value = fileColor || detectedColor || elements.color.value;
   elements.analyzeSingleAI.disabled = false;
+  elements.singleConfidence.hidden = true;
+  elements.singleConfidence.innerHTML = "";
   showStatus(
     elements.colorHint,
     fileColor
@@ -294,8 +298,9 @@ async function analyzeSingleWithAI() {
     return;
   }
 
-  setButtonLoading(elements.analyzeSingleAI, "Analizando...");
-  showStatus(elements.aiSingleStatus, "Análisis visual en beta en curso. Revisa los resultados antes de guardar.");
+  setButtonLoading(elements.analyzeSingleAI, "Analizando prenda...");
+  renderConfidenceBadge(null);
+  showStatus(elements.aiSingleStatus, "Analizando prenda... SACLO está leyendo tipo, color, estilo y temporada.");
 
   try {
     const payload = await requestVisionAnalysis("/api/analyze-garment", selectedPhoto, {
@@ -304,9 +309,10 @@ async function analyzeSingleWithAI() {
     const garment = payload.garment;
     if (!garment) throw new Error("El backend no devolvió una prenda válida.");
     applyGarmentSuggestion(garment);
+    renderConfidenceBadge(garment.confidence);
     showStatus(
       elements.aiSingleStatus,
-      `Resultado listo con ${formatConfidence(garment.confidence)} de confianza. ${garment.description} Revisa los campos antes de guardar.`
+      `${getConfidenceLabel(garment.confidence)}. ${garment.description} Puedes editar cualquier campo antes de guardar.`
     );
     showToast("Análisis visual aplicado. Revisa y guarda cuando encaje.");
   } catch (error) {
@@ -348,7 +354,7 @@ async function previewClosetPhoto(event) {
   elements.analyzeClosetAI.disabled = false;
   resetCropSelection();
   elements.scanStatus.textContent = "Arrastra sobre una prenda. Verás una preview antes de guardarla.";
-  showStatus(elements.aiClosetStatus, "Análisis visual en beta disponible. La IA puede equivocarse si las prendas están superpuestas.");
+  showStatus(elements.aiClosetStatus, "IA visual en beta lista. Mejor resultado con buena luz, prendas separadas y fondo claro.");
 }
 
 async function analyzeClosetWithAI() {
@@ -357,8 +363,8 @@ async function analyzeClosetWithAI() {
     return;
   }
 
-  setButtonLoading(elements.analyzeClosetAI, "Analizando...");
-  showStatus(elements.aiClosetStatus, "Analizando prendas visibles. Revisa los resultados antes de guardar.");
+  setButtonLoading(elements.analyzeClosetAI, "Detectando prendas...");
+  showStatus(elements.aiClosetStatus, "Detectando prendas visibles... SACLO enviará cada resultado a revisión asistida.");
 
   try {
     const payload = await requestVisionAnalysis("/api/analyze-closet", closetImage);
@@ -369,6 +375,7 @@ async function analyzeClosetWithAI() {
         elements.aiClosetStatus,
         payload.notes || "No se detectaron prendas claras. Usa el recorte manual para crear prendas con más precisión."
       );
+      elements.scanStatus.textContent = "No hay detección clara. Puedes seleccionar prendas manualmente con el recorte asistido.";
       return;
     }
 
@@ -380,6 +387,8 @@ async function analyzeClosetWithAI() {
         style: garment.style,
         season: garment.season,
         photo: closetImage,
+        confidence: Number(garment.confidence || 0),
+        description: garment.description || "",
         source: `Análisis visual en beta · ${formatConfidence(garment.confidence)}`
       })),
       ...drafts
@@ -389,7 +398,7 @@ async function analyzeClosetWithAI() {
     renderAll();
     showStatus(
       elements.aiClosetStatus,
-      `${detected.length} prendas detectadas. ${payload.notes || "Revisa los resultados antes de guardar."}`
+      `${detected.length} prendas detectadas. ${payload.notes || "Revisa cada tarjeta antes de guardar."}`
     );
     elements.scanStatus.textContent = "También puedes seguir usando recorte asistido sobre la misma foto.";
     showToast("Prendas detectadas y enviadas a revisión.");
@@ -399,7 +408,7 @@ async function analyzeClosetWithAI() {
       `${error.message} El recorte manual sigue disponible como fallback.`
     );
   } finally {
-    setButtonReady(elements.analyzeClosetAI, "Analizar armario con IA", Boolean(closetImage));
+    setButtonReady(elements.analyzeClosetAI, "Detectar prendas con IA", Boolean(closetImage));
   }
 }
 
@@ -546,6 +555,8 @@ function resetSingleForm() {
   elements.preview.classList.remove("visible");
   elements.colorHint.hidden = true;
   elements.aiSingleStatus.hidden = true;
+  elements.singleConfidence.hidden = true;
+  elements.singleConfidence.innerHTML = "";
   elements.analyzeSingleAI.disabled = true;
   selectedPhoto = "";
   selectedPhotoFileName = "";
@@ -755,6 +766,24 @@ function toggleHistoryFavorite(id) {
   showToast(outfits.find(candidate => candidate.id === id)?.favorite ? "Outfit añadido a favoritos." : "Outfit quitado de favoritos.");
 }
 
+function reuseHistoryOutfit(id) {
+  const outfit = outfits.find(candidate => candidate.id === id);
+  if (!outfit?.pieces?.length) return;
+
+  currentOutfit = {
+    pieces: outfit.pieces,
+    requiredGroups: [],
+    explanation: outfit.explanation,
+    context: outfit.context || getDailyContext(),
+    title: outfit.title || "Outfit guardado",
+    savedId: outfit.id
+  };
+
+  renderCurrentOutfit();
+  document.getElementById("outfitBuilder").scrollIntoView({ behavior: "smooth", block: "start" });
+  showToast("Outfit recuperado. Puedes usarlo de nuevo hoy.");
+}
+
 function renderAll() {
   renderStats();
   renderDrafts();
@@ -837,7 +866,8 @@ function renderHistory() {
   outfits.slice(0, 8).forEach(outfit => {
     elements.outfitHistory.appendChild(renderHistoryItem(outfit, createImageElement, {
       onWear: markHistoryOutfitUsed,
-      onFavorite: toggleHistoryFavorite
+      onFavorite: toggleHistoryFavorite,
+      onReuse: reuseHistoryOutfit
     }));
   });
 }
@@ -874,11 +904,17 @@ function renderHome() {
 
   const unused = wardrobe.filter(item => !item.usageCount).length;
   const favoriteCount = outfits.filter(outfit => outfit.favorite).length;
+  const lastWorn = [...outfits]
+    .filter(outfit => outfit.wornAt)
+    .sort((a, b) => b.wornAt - a.wornAt)[0];
   elements.dailyInsight.textContent = unused
     ? `Tienes ${unused} prendas que aún no has usado. Buen momento para rotarlas.`
     : favoriteCount
       ? `Tus favoritos ya están creando un mapa claro de tu estilo.`
       : "Guarda tus mejores looks para que el historial empiece a trabajar contigo.";
+  elements.lastWornOutfit.textContent = lastWorn
+    ? `Último outfit usado: ${lastWorn.title} · ${formatRelativeDay(lastWorn.wornAt)}`
+    : "Último outfit usado: todavía no hay registro.";
 }
 
 function getDailyContext() {
@@ -897,6 +933,26 @@ function getDailyMessage(context, pieces) {
   const hasLayer = pieces.some(item => ["jersey", "sudadera", "chaqueta", "cazadora", "abrigo"].includes(item.type));
   if (context.occasion === "clase") return hasLayer ? "Hoy toca un look cómodo para clase, con una capa fácil por si baja la temperatura." : "Hoy toca un look cómodo para clase, rápido y fácil de llevar.";
   return "Te dejo una opción equilibrada para moverte sin pensar demasiado en la combinación.";
+}
+
+function getConfidenceLabel(confidence) {
+  const value = Number(confidence) || 0;
+  return value >= 0.7
+    ? `Resultado con confianza ${formatConfidence(value)}`
+    : `Resultado con confianza ${formatConfidence(value)} · revisar recomendado`;
+}
+
+function formatRelativeDay(timestamp) {
+  const then = new Date(timestamp);
+  const today = getDayKey();
+  const day = getDayKey(then);
+  if (day === today) return "hoy";
+
+  const yesterdayDate = new Date();
+  yesterdayDate.setDate(yesterdayDate.getDate() - 1);
+  if (day === getDayKey(yesterdayDate)) return "ayer";
+
+  return then.toLocaleDateString("es-ES", { day: "2-digit", month: "short" });
 }
 
 function getRecentWeeklyOutfits() {
@@ -956,6 +1012,33 @@ function setupNavigationState() {
 function showStatus(node, message) {
   node.hidden = false;
   node.textContent = message;
+}
+
+function renderConfidenceBadge(confidence) {
+  elements.singleConfidence.innerHTML = "";
+
+  if (confidence === null || confidence === undefined) {
+    elements.singleConfidence.hidden = false;
+    const loading = document.createElement("span");
+    loading.className = "confidence-pill loading";
+    loading.textContent = "IA visual en beta";
+    elements.singleConfidence.appendChild(loading);
+    return;
+  }
+
+  const value = Number(confidence) || 0;
+  elements.singleConfidence.hidden = false;
+  const confidencePill = document.createElement("span");
+  confidencePill.className = `confidence-pill ${value >= 0.7 ? "strong" : "review"}`;
+  confidencePill.textContent = `Confianza ${formatConfidence(value)}`;
+  elements.singleConfidence.appendChild(confidencePill);
+
+  if (value < 0.7) {
+    const reviewPill = document.createElement("span");
+    reviewPill.className = "confidence-pill review";
+    reviewPill.textContent = "Revisar recomendado";
+    elements.singleConfidence.appendChild(reviewPill);
+  }
 }
 
 function showToast(message) {

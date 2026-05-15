@@ -9,10 +9,10 @@ SACLO es un asistente inteligente de armario y outfits con IA. Convierte tu arma
 - Armario visual guardado en `localStorage`, sin login ni base de datos todavía.
 - Alta rápida de prendas con foto, nombre sugerido desde archivo y color calculado localmente.
 - Análisis visual real opcional mediante backend Node.js + Express + OpenAI Vision.
-- Revisión asistida: la IA propone datos, el usuario corrige antes de guardar.
+- Revisión asistida: la IA propone datos, muestra confianza y el usuario corrige antes de guardar.
 - Creación de prendas desde una foto del armario con recorte manual como fallback.
 - Recomendador de outfits por ocasión, clima, temperatura, estilo, temporada, color y rotación de uso.
-- Home tipo app móvil con outfit del día, racha, estadísticas básicas, favoritos e historial visual.
+- Home tipo app móvil con “Hoy en SACLO”, outfit del día, racha, prendas sin usar, último outfit usado, favoritos e historial visual.
 
 ## Frontend sin backend
 
@@ -47,9 +47,11 @@ Desde la app puedes:
 2. Guardarla en `localStorage`.
 3. Pulsar `Probar conexión`.
 4. Usar `Analizar con IA` en prenda individual.
-5. Usar `Analizar armario con IA` desde una foto de armario.
+5. Usar `Detectar prendas con IA` desde una foto de armario.
 
 Si el análisis falla, SACLO muestra un error claro y mantiene el flujo local. Los valores antiguos de desarrollo como `http://localhost:3000` se migran automáticamente al backend online de Render.
+
+Consejo para mejores resultados: buena luz, prenda separada y fondo claro. Si la confianza baja de 70%, SACLO marca `Revisar recomendado`.
 
 ## Backend
 
@@ -119,6 +121,16 @@ Recibe JSON:
 ```
 
 Devuelve hasta 8 prendas claramente visibles y una nota de revisión. No debe inventar prendas cuando la imagen sea confusa.
+
+## Mejoras recientes de UX
+
+- Loading premium con `Analizando prenda...` y `Detectando prendas...`.
+- Badge de confianza para resultados de IA visual en beta.
+- Aviso `Revisar recomendado` cuando la confianza baja de 70%.
+- Tarjetas independientes para prendas detectadas, editables antes de guardar.
+- Notas de la IA visibles en revisión asistida.
+- Sección `Hoy en SACLO` con racha, prendas sin usar, último outfit usado y acceso rápido al look del día.
+- Historial con favoritos, fecha, ocasión, clima, marcado de uso y botón `Usar de nuevo`.
 
 ## Arquitectura
 

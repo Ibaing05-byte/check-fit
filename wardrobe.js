@@ -155,7 +155,18 @@ export function renderDraftCard(item, callbacks) {
   const fields = document.createElement("div");
   fields.className = "draft-fields";
 
+  const head = document.createElement("div");
+  head.className = "draft-head";
+  const copy = document.createElement("div");
+  const title = document.createElement("strong");
+  title.textContent = item.name || "Prenda detectada";
+  const source = document.createElement("small");
+  source.textContent = item.description || item.source || "Revisión asistida";
+  copy.append(title, source);
+  head.append(copy, createConfidenceBadge(item));
+
   fields.append(
+    head,
     createTextField("Nombre", item.name, value => callbacks.onChange(item.id, "name", value)),
     createTextField("Color", item.color, value => callbacks.onChange(item.id, "color", value)),
     createSelectField("Tipo", TYPES, item.type, value => callbacks.onChange(item.id, "type", value)),
@@ -167,12 +178,33 @@ export function renderDraftCard(item, callbacks) {
   actions.className = "draft-actions";
   actions.append(
     createCardButton("Guardar prenda", () => callbacks.onConfirm(item.id), "primary"),
+    createCardButton("Editar", () => focusDraftEditor(card), "ghost"),
     createCardButton("Descartar", () => callbacks.onRemove(item.id), "ghost")
   );
 
   fields.appendChild(actions);
   card.appendChild(fields);
   return card;
+}
+
+function createConfidenceBadge(item) {
+  const confidence = Number(item.confidence || 0);
+  const badge = document.createElement("span");
+  badge.className = `confidence-pill ${confidence && confidence < 0.7 ? "review" : "strong"}`;
+  badge.textContent = confidence
+    ? confidence < 0.7
+      ? `${Math.round(confidence * 100)}% · Revisar`
+      : `${Math.round(confidence * 100)}%`
+    : "Manual";
+  badge.title = confidence && confidence < 0.7 ? "Revisar recomendado" : "Confianza del análisis";
+  return badge;
+}
+
+function focusDraftEditor(card) {
+  card.classList.add("editing");
+  const input = card.querySelector("input");
+  input?.focus();
+  input?.select();
 }
 
 export function updateWardrobeSummary(node, visibleCount, totalCount) {
