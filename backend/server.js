@@ -54,6 +54,36 @@ app.get("/api/health", (_request, response) => {
   });
 });
 
+app.get("/api/debug-openai", asyncHandler(async (_request, response) => {
+  requireApiKey();
+
+  try {
+    const result = await getOpenAI().responses.create({
+      model: MODEL,
+      input: "SACLO backend debug. Responde exactamente: ok",
+      max_output_tokens: 16
+    });
+
+    response.json({
+      success: true,
+      model: MODEL,
+      responseId: result.id,
+      output: result.output_text || ""
+    });
+  } catch (error) {
+    logOpenAIError(error, {
+      endpoint: "GET /api/debug-openai",
+      model: MODEL
+    });
+
+    response.status(error.status || 500).json({
+      success: false,
+      model: MODEL,
+      error: serializeOpenAIError(error)
+    });
+  }
+}));
+
 app.post("/api/analyze-garment", asyncHandler(async (request, response) => {
   requireApiKey();
   const image = parseImagePayload(request.body);
@@ -96,15 +126,24 @@ app.post("/api/analyze-closet", asyncHandler(async (request, response) => {
 app.use((error, _request, response, _next) => {
   const isTooLarge = error.type === "entity.too.large";
   const status = isTooLarge ? 413 : error.status || 500;
+  if (error.code === "OPENAI_ERROR" || error.name?.includes("OpenAI")) {
+    logOpenAIError(error, {
+      middleware: "global-error-handler",
+      status
+    });
+  }
+
   response.status(status).json({
     success: false,
     error: isTooLarge ? `La imagen supera el límite de ${MAX_IMAGE_MB} MB. Prueba con una imagen más pequeña.` : error.message || "No se pudo completar la operación.",
-    code: isTooLarge ? "IMAGE_TOO_LARGE" : error.code || "SERVER_ERROR"
+    code: isTooLarge ? "IMAGE_TOO_LARGE" : error.code || "SERVER_ERROR",
+    details: error.code === "OPENAI_ERROR" ? serializeOpenAIError(error.cause || error) : undefined
   });
 });
 
 app.listen(PORT, () => {
   console.log(`SACLO backend listening on http://localhost:${PORT}`);
+  console.log(`SACLO OpenAI vision model: ${MODEL}`);
 });
 
 async function analyzeImage({ image, schemaName, schema, prompt }) {
@@ -131,15 +170,30 @@ async function analyzeImage({ image, schemaName, schema, prompt }) {
       }
     });
   } catch (cause) {
-    const error = new Error("OpenAI no pudo completar el análisis visual. Revisa la clave, el modelo o prueba otra imagen.");
-    error.status = cause?.status || 502;
+    logOpenAIError(cause, {
+      operation: "analyzeImage",
+      schemaName,
+      model: MODEL
+    });
+
+    const error = new Error(cause?.message || "OpenAI no pudo completar el análisis visual.");
+    error.status = cause?.status || cause?.response?.status || 502;
     error.code = "OPENAI_ERROR";
+    error.cause = cause;
     throw error;
   }
 
   try {
     return JSON.parse(response.output_text);
-  } catch {
+  } catch (cause) {
+    console.error("[SACLO][OpenAI invalid JSON response]", {
+      model: MODEL,
+      schemaName,
+      responseId: response?.id,
+      outputText: response?.output_text,
+      output: response?.output,
+      errorMessage: cause?.message
+    });
     const error = new Error("La IA devolvió una respuesta inválida. Prueba otra imagen o usa revisión manual.");
     error.status = 502;
     error.code = "INVALID_AI_RESPONSE";
@@ -274,6 +328,38 @@ function requireApiKey() {
     error.code = "MISSING_OPENAI_API_KEY";
     throw error;
   }
+}
+
+function logOpenAIError(error, context = {}) {
+  console.error("[SACLO][OpenAI error]", {
+    context,
+    message: error?.message,
+    status: error?.status || error?.response?.status,
+    code: error?.code,
+    type: error?.type,
+    param: error?.param,
+    requestId: error?.request_id,
+    responseData: error?.response?.data,
+    responseBody: error?.response?.body,
+    headers: error?.headers,
+    fullError: serializeOpenAIError(error)
+  });
+}
+
+function serializeOpenAIError(error) {
+  return {
+    message: error?.message,
+    status: error?.status || error?.response?.status,
+    code: error?.code,
+    type: error?.type,
+    param: error?.param,
+    requestId: error?.request_id,
+    responseData: error?.response?.data,
+    responseBody: error?.response?.body,
+    headers: error?.headers,
+    name: error?.name,
+    stack: error?.stack
+  };
 }
 
 function asyncHandler(handler) {

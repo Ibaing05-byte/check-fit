@@ -44,10 +44,19 @@ Salud:
 curl http://localhost:3000/api/health
 ```
 
+Debug de OpenAI:
+
+```bash
+curl http://localhost:3000/api/debug-openai
+```
+
+Si OpenAI responde, devuelve `success: true`. Si falla, devuelve el error real y el backend imprime en consola `message`, `status`, `code`, `responseData`, `responseBody`, headers y stack para depurarlo en Render.
+
 Backend online esperado para producción:
 
 ```bash
 curl https://check-fit.onrender.com/api/health
+curl https://check-fit.onrender.com/api/debug-openai
 ```
 
 Respuesta:
