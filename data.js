@@ -35,9 +35,9 @@ export const TYPES = [
   "otro"
 ];
 
-export const STYLES = ["casual", "elegante", "deportivo", "streetwear"];
-export const SEASONS = ["verano", "invierno", "entretiempo"];
-export const COLORS = ["blanco", "negro", "gris", "azul", "rojo", "verde", "amarillo", "beige", "marrón", "rosa", "morado", "naranja"];
+export const STYLES = ["casual", "elegante", "deportivo", "streetwear", "formal", "minimalista", "otro"];
+export const SEASONS = ["verano", "invierno", "entretiempo", "todo el año"];
+export const COLORS = ["blanco", "negro", "gris", "azul", "rojo", "verde", "amarillo", "beige", "marrón", "rosa", "morado", "naranja", "multicolor", "otro"];
 export const OCCASIONS = ["clase", "trabajo", "cita", "fiesta", "paseo", "viaje", "evento formal", "plan casual", "deporte"];
 export const CLIMATES = ["soleado", "lluvia", "frío", "calor", "nublado", "viento"];
 
@@ -58,13 +58,13 @@ export const GROUP_LABELS = {
 };
 
 export const STYLE_TARGETS = {
-  trabajo: ["elegante", "casual"],
+  trabajo: ["elegante", "minimalista", "casual"],
   cita: ["elegante", "casual"],
   fiesta: ["elegante", "streetwear"],
   clase: ["casual", "streetwear"],
   paseo: ["casual", "deportivo"],
   viaje: ["casual", "deportivo"],
-  "evento formal": ["elegante"],
+  "evento formal": ["formal", "elegante", "minimalista"],
   "plan casual": ["casual", "streetwear"],
   deporte: ["deportivo"]
 };

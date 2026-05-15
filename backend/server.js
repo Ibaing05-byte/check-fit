@@ -1,14 +1,13 @@
 import "dotenv/config";
 import cors from "cors";
 import express from "express";
-import jwt from "jsonwebtoken";
-import multer from "multer";
 import OpenAI from "openai";
 
-const PORT = Number(process.env.PORT || 3001);
+const PORT = Number(process.env.PORT || 3000);
 const MODEL = process.env.OPENAI_VISION_MODEL || "gpt-4.1-mini";
-const MAX_IMAGE_MB = Number(process.env.MAX_IMAGE_MB || 8);
-const TOKEN_TTL = "7d";
+const MAX_IMAGE_MB = Number(process.env.MAX_IMAGE_MB || 6);
+const JSON_BODY_LIMIT_MB = Math.ceil(MAX_IMAGE_MB * 1.4) + 1;
+const MAX_CLOSET_ITEMS = 8;
 
 const TYPES = [
   "camiseta",
@@ -37,125 +36,70 @@ const TYPES = [
   "accesorio",
   "otro"
 ];
-const COLORS = ["blanco", "negro", "gris", "azul", "rojo", "verde", "amarillo", "beige", "marrón", "rosa", "morado", "naranja"];
-const STYLES = ["casual", "elegante", "deportivo", "streetwear"];
-const SEASONS = ["verano", "invierno", "entretiempo"];
+const COLORS = ["blanco", "negro", "gris", "azul", "rojo", "verde", "amarillo", "beige", "marrón", "rosa", "morado", "naranja", "multicolor", "otro"];
+const STYLES = ["casual", "elegante", "deportivo", "streetwear", "formal", "minimalista", "otro"];
+const SEASONS = ["verano", "invierno", "entretiempo", "todo el año"];
 
 const app = express();
-const upload = multer({
-  storage: multer.memoryStorage(),
-  limits: { fileSize: MAX_IMAGE_MB * 1024 * 1024 },
-  fileFilter: (_request, file, callback) => {
-    if (!["image/jpeg", "image/png", "image/webp"].includes(file.mimetype)) {
-      callback(new Error("Formato no soportado. Usa JPG, PNG o WEBP."));
-      return;
-    }
-    callback(null, true);
-  }
-});
 
 app.use(cors({
   origin: getAllowedOrigin()
 }));
-app.use(express.json({ limit: "1mb" }));
+app.use(express.json({ limit: `${JSON_BODY_LIMIT_MB}mb` }));
 
 app.get("/api/health", (_request, response) => {
   response.json({
-    ok: true,
-    service: "saclo-backend",
-    vision: Boolean(process.env.OPENAI_API_KEY),
-    model: MODEL
+    status: "ok",
+    service: "saclo-backend"
   });
 });
 
-app.post("/api/beta-login", (request, response) => {
-  const email = normalizeEmail(request.body?.email);
-  const password = String(request.body?.password || "");
-  const allowedEmails = getAllowedTesterEmails();
-
-  if (!email || !password) {
-    response.status(400).json({
-      ok: false,
-      error: "Introduce email y contraseña para acceder a la beta."
-    });
-    return;
-  }
-
-  if (!process.env.BETA_PASSWORD || !process.env.JWT_SECRET) {
-    response.status(500).json({
-      ok: false,
-      error: "La beta no está configurada todavía en el backend."
-    });
-    return;
-  }
-
-  if (!allowedEmails.includes(email) || password !== process.env.BETA_PASSWORD) {
-    response.status(401).json({
-      ok: false,
-      error: "Email o contraseña incorrectos."
-    });
-    return;
-  }
-
-  const token = jwt.sign(
-    {
-      sub: email,
-      scope: "beta-tester"
-    },
-    process.env.JWT_SECRET,
-    { expiresIn: TOKEN_TTL }
-  );
-
-  response.json({
-    ok: true,
-    token,
-    expiresIn: TOKEN_TTL,
-    tester: { email }
-  });
-});
-
-app.post("/api/analyze-garment", upload.single("image"), asyncHandler(async (request, response) => {
+app.post("/api/analyze-garment", asyncHandler(async (request, response) => {
   requireApiKey();
-  const image = requireImage(request.file);
+  const image = parseImagePayload(request.body);
   const analysis = await analyzeImage({
     image,
-    schemaName: "check_fit_garment_analysis",
+    schemaName: "saclo_garment_analysis",
     schema: garmentSchema(),
-    prompt: garmentPrompt()
+    prompt: garmentPrompt(request.body?.filename)
   });
 
   response.json({
-    ok: true,
+    success: true,
     garment: normalizeGarment(analysis)
   });
 }));
 
-app.post("/api/analyze-closet", upload.single("image"), asyncHandler(async (request, response) => {
+app.post("/api/analyze-closet", asyncHandler(async (request, response) => {
   requireApiKey();
-  const image = requireImage(request.file);
+  const image = parseImagePayload(request.body);
   const analysis = await analyzeImage({
     image,
-    schemaName: "check_fit_closet_analysis",
+    schemaName: "saclo_closet_analysis",
     schema: closetSchema(),
     prompt: closetPrompt()
   });
   const garments = Array.isArray(analysis.garments)
-    ? analysis.garments.map(normalizeGarment).filter(item => item.confidence >= 0.48)
+    ? analysis.garments
+      .map(normalizeGarment)
+      .filter(item => item.confidence >= 0.45)
+      .slice(0, MAX_CLOSET_ITEMS)
     : [];
 
   response.json({
-    ok: true,
+    success: true,
     garments,
-    reviewRecommended: Boolean(analysis.reviewRecommended || garments.some(item => item.confidence < 0.68)),
-    message: analysis.message || "Revisa los resultados antes de guardar. La IA puede equivocarse si las prendas están superpuestas."
+    notes: analysis.notes || "Revisa los resultados antes de guardar. La IA puede equivocarse si las prendas están superpuestas."
   });
 }));
 
 app.use((error, _request, response, _next) => {
-  const status = error.status || 500;
+  const isTooLarge = error.type === "entity.too.large";
+  const status = isTooLarge ? 413 : error.status || 500;
   response.status(status).json({
-    ok: false,
-    error: error.message || "No se pudo completar la operación."
+    success: false,
+    error: isTooLarge ? `La imagen supera el límite de ${MAX_IMAGE_MB} MB. Prueba con una imagen más pequeña.` : error.message || "No se pudo completar la operación.",
+    code: isTooLarge ? "IMAGE_TOO_LARGE" : error.code || "SERVER_ERROR"
   });
 });
 
@@ -164,55 +108,71 @@ app.listen(PORT, () => {
 });
 
 async function analyzeImage({ image, schemaName, schema, prompt }) {
-  const response = await getOpenAI().responses.create({
-    model: MODEL,
-    input: [
-      {
-        role: "user",
-        content: [
-          { type: "input_text", text: prompt },
-          { type: "input_image", image_url: image }
-        ]
+  let response;
+  try {
+    response = await getOpenAI().responses.create({
+      model: MODEL,
+      input: [
+        {
+          role: "user",
+          content: [
+            { type: "input_text", text: prompt },
+            { type: "input_image", image_url: image }
+          ]
+        }
+      ],
+      text: {
+        format: {
+          type: "json_schema",
+          name: schemaName,
+          strict: true,
+          schema
+        }
       }
-    ],
-    text: {
-      format: {
-        type: "json_schema",
-        name: schemaName,
-        strict: true,
-        schema
-      }
-    }
-  });
+    });
+  } catch (cause) {
+    const error = new Error("OpenAI no pudo completar el análisis visual. Revisa la clave, el modelo o prueba otra imagen.");
+    error.status = cause?.status || 502;
+    error.code = "OPENAI_ERROR";
+    throw error;
+  }
 
-  return JSON.parse(response.output_text);
+  try {
+    return JSON.parse(response.output_text);
+  } catch {
+    const error = new Error("La IA devolvió una respuesta inválida. Prueba otra imagen o usa revisión manual.");
+    error.status = 502;
+    error.code = "INVALID_AI_RESPONSE";
+    throw error;
+  }
 }
 
 function getOpenAI() {
   return new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 }
 
-function garmentPrompt() {
+function garmentPrompt(filename = "") {
   return [
-    "Eres el análisis visual en beta de SACLO, una app fashion-tech.",
+    "Eres SACLO, un asistente inteligente de armario y outfits con IA.",
     "Analiza una única prenda de ropa o accesorio visible en la imagen.",
-    "Devuelve una clasificación práctica para que una persona pueda guardarla en su armario.",
+    "Devuelve datos prácticos para que el usuario pueda revisar y guardar la prenda.",
+    filename ? `Nombre de archivo opcional: ${String(filename).slice(0, 120)}.` : "",
     `Tipos permitidos: ${TYPES.join(", ")}.`,
     `Colores permitidos: ${COLORS.join(", ")}.`,
     `Estilos permitidos: ${STYLES.join(", ")}.`,
     `Temporadas permitidas: ${SEASONS.join(", ")}.`,
-    "Si no estás seguro, baja la confianza y usa una descripción honesta.",
-    "No inventes marcas, materiales ni detalles que no se vean."
-  ].join("\n");
+    "No inventes marcas, materiales ni detalles que no se vean.",
+    "Si la imagen no es clara, usa confianza baja y una descripción honesta."
+  ].filter(Boolean).join("\n");
 }
 
 function closetPrompt() {
   return [
-    "Eres el análisis visual en beta de SACLO, una app fashion-tech.",
+    "Eres SACLO, un asistente inteligente de armario y outfits con IA.",
     "Analiza una foto de armario, perchero, cama o varias prendas juntas.",
-    "Detecta solo prendas razonablemente visibles y separables. No inventes prendas ocultas.",
-    "Si hay ropa superpuesta, poca luz o confusión, devuelve menos prendas, baja confianza y recomienda revisión manual.",
-    "Máximo 8 prendas detectadas.",
+    "Detecta solo prendas claramente visibles. No inventes prendas ocultas o ambiguas.",
+    "Devuelve como máximo 8 prendas.",
+    "Si hay prendas superpuestas, poca luz o confusión, devuelve pocas prendas y explícalo en notes.",
     `Tipos permitidos: ${TYPES.join(", ")}.`,
     `Colores permitidos: ${COLORS.join(", ")}.`,
     `Estilos permitidos: ${STYLES.join(", ")}.`,
@@ -224,7 +184,7 @@ function garmentSchema() {
   return {
     type: "object",
     additionalProperties: false,
-    required: ["name", "type", "color", "style", "season", "confidence", "description"],
+    required: ["name", "type", "color", "style", "season", "description", "confidence"],
     properties: garmentProperties()
   };
 }
@@ -233,20 +193,19 @@ function closetSchema() {
   return {
     type: "object",
     additionalProperties: false,
-    required: ["garments", "reviewRecommended", "message"],
+    required: ["garments", "notes"],
     properties: {
       garments: {
         type: "array",
-        maxItems: 8,
+        maxItems: MAX_CLOSET_ITEMS,
         items: {
           type: "object",
           additionalProperties: false,
-          required: ["name", "type", "color", "style", "season", "confidence", "description"],
+          required: ["name", "type", "color", "style", "season", "description", "confidence"],
           properties: garmentProperties()
         }
       },
-      reviewRecommended: { type: "boolean" },
-      message: { type: "string" }
+      notes: { type: "string" }
     }
   };
 }
@@ -258,8 +217,8 @@ function garmentProperties() {
     color: { type: "string", enum: COLORS },
     style: { type: "string", enum: STYLES },
     season: { type: "string", enum: SEASONS },
-    confidence: { type: "number", minimum: 0, maximum: 1 },
-    description: { type: "string" }
+    description: { type: "string" },
+    confidence: { type: "number", minimum: 0, maximum: 1 }
   };
 }
 
@@ -267,45 +226,58 @@ function normalizeGarment(item) {
   return {
     name: String(item.name || "Prenda detectada").trim(),
     type: TYPES.includes(item.type) ? item.type : "otro",
-    color: COLORS.includes(item.color) ? item.color : "gris",
-    style: STYLES.includes(item.style) ? item.style : "casual",
-    season: SEASONS.includes(item.season) ? item.season : "entretiempo",
-    confidence: clamp(Number(item.confidence || 0), 0, 1),
-    description: String(item.description || "Resultado de análisis visual en beta.").trim()
+    color: COLORS.includes(item.color) ? item.color : "otro",
+    style: STYLES.includes(item.style) ? item.style : "otro",
+    season: SEASONS.includes(item.season) ? item.season : "todo el año",
+    description: String(item.description || "Resultado de análisis visual en beta.").trim(),
+    confidence: clamp(Number(item.confidence || 0), 0, 1)
   };
+}
+
+function parseImagePayload(body) {
+  const raw = String(body?.image || body?.imageBase64 || "").trim();
+  if (!raw) {
+    const error = new Error("Falta la imagen en base64.");
+    error.status = 400;
+    error.code = "MISSING_IMAGE";
+    throw error;
+  }
+
+  const image = raw.startsWith("data:image/")
+    ? raw
+    : `data:image/jpeg;base64,${raw}`;
+  const match = image.match(/^data:(image\/(?:jpeg|jpg|png|webp));base64,([A-Za-z0-9+/=\s]+)$/);
+
+  if (!match) {
+    const error = new Error("Formato de imagen no válido. Usa JPG, PNG o WEBP en base64.");
+    error.status = 400;
+    error.code = "INVALID_IMAGE_FORMAT";
+    throw error;
+  }
+
+  const base64 = match[2].replace(/\s/g, "");
+  const bytes = Math.ceil((base64.length * 3) / 4);
+  if (bytes > MAX_IMAGE_MB * 1024 * 1024) {
+    const error = new Error(`La imagen supera el límite de ${MAX_IMAGE_MB} MB. Prueba con una imagen más pequeña.`);
+    error.status = 413;
+    error.code = "IMAGE_TOO_LARGE";
+    throw error;
+  }
+
+  return `data:${match[1].replace("jpg", "jpeg")};base64,${base64}`;
 }
 
 function requireApiKey() {
   if (!process.env.OPENAI_API_KEY) {
     const error = new Error("OPENAI_API_KEY no está configurada en el backend.");
     error.status = 500;
+    error.code = "MISSING_OPENAI_API_KEY";
     throw error;
   }
-}
-
-function requireImage(file) {
-  if (!file) {
-    const error = new Error("Sube una imagen en el campo image.");
-    error.status = 400;
-    throw error;
-  }
-
-  return `data:${file.mimetype};base64,${file.buffer.toString("base64")}`;
 }
 
 function asyncHandler(handler) {
   return (request, response, next) => Promise.resolve(handler(request, response, next)).catch(next);
-}
-
-function getAllowedTesterEmails() {
-  return String(process.env.ALLOWED_TESTER_EMAILS || "")
-    .split(",")
-    .map(normalizeEmail)
-    .filter(Boolean);
-}
-
-function normalizeEmail(value) {
-  return String(value || "").trim().toLowerCase();
 }
 
 function getAllowedOrigin() {

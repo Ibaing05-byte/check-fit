@@ -6,5 +6,6 @@
 !.dev.vars.example
 .env*
 !.env.example
+!backend/.env.example
 backend/.env
 backend/node_modules/

@@ -103,6 +103,25 @@
         </article>
       </section>
 
+      <section class="surface api-config" aria-label="Configuración beta de IA">
+        <div>
+          <p class="eyebrow">IA beta</p>
+          <h2>Conexión de análisis visual</h2>
+          <p>Conecta el backend para probar OpenAI Vision. Si está apagado, SACLO sigue funcionando con análisis local y recorte manual.</p>
+        </div>
+        <div class="api-config-controls">
+          <label>
+            API URL
+            <input id="apiBaseUrl" type="url" placeholder="http://localhost:3000" autocomplete="off" />
+          </label>
+          <div class="api-config-actions">
+            <button id="saveApiBaseUrl" class="secondary" type="button">Guardar URL</button>
+            <button id="testApiConnection" class="ghost" type="button">Probar conexión</button>
+          </div>
+          <p id="apiConnectionStatus" class="status-note compact" hidden></p>
+        </div>
+      </section>
+
       <section class="app-grid app-screen" id="outfit" aria-label="Captura y outfit">
         <section id="capture" class="surface capture-panel" aria-label="Añadir prendas">
           <div class="section-heading">
@@ -162,7 +181,7 @@
             <p class="section-copy">Crea prendas desde una foto del armario: selecciona una zona, revisa el recorte y guárdalo como prenda independiente.</p>
             <label class="upload-drop closet" for="closetPhoto">
               <span>Subir foto del armario</span>
-              <small>Recorte manual ahora; preparado para IA visual en una fase posterior</small>
+              <small>Análisis visual opcional + recorte manual como fallback</small>
               <input id="closetPhoto" type="file" accept="image/*" />
             </label>
             <div class="ai-panel">
@@ -170,7 +189,7 @@
                 <p class="eyebrow">Análisis visual en beta</p>
                 <small>Detecta prendas visibles y las manda a revisión. Si la foto es confusa, usa el recorte manual.</small>
               </div>
-              <button id="analyzeClosetAI" class="secondary" type="button" disabled>Analizar con IA</button>
+              <button id="analyzeClosetAI" class="secondary" type="button" disabled>Analizar armario con IA</button>
             </div>
             <p id="aiClosetStatus" class="status-note" hidden></p>
 

@@ -478,6 +478,40 @@ select option {
   line-height: 1.5;
 }
 
+.api-config {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(280px, 0.72fr);
+  gap: 16px;
+  align-items: end;
+  margin-bottom: 18px;
+  background:
+    linear-gradient(135deg, rgba(91, 140, 255, 0.11), rgba(216, 195, 165, 0.06)),
+    rgba(21, 23, 34, 0.9);
+}
+
+.api-config h2 {
+  margin: 0;
+  font-size: 22px;
+}
+
+.api-config p:not(.eyebrow) {
+  max-width: 680px;
+  margin: 8px 0 0;
+  color: var(--muted);
+  line-height: 1.5;
+}
+
+.api-config-controls {
+  display: grid;
+  gap: 10px;
+}
+
+.api-config-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
 .app-grid {
   display: grid;
   grid-template-columns: minmax(320px, 0.92fr) minmax(0, 1.08fr);
@@ -1111,7 +1145,8 @@ select option {
 @media (max-width: 980px) {
   .hero-grid,
   .app-grid,
-  .home-dashboard {
+  .home-dashboard,
+  .api-config {
     grid-template-columns: 1fr;
   }
 
@@ -1170,6 +1205,7 @@ select option {
   .onboarding,
   .crop-guide,
   .ai-panel,
+  .api-config-actions,
   .form-grid,
   .outfit-controls,
   .wardrobe-tools,

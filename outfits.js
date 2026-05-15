@@ -132,6 +132,7 @@ function scoreItem(item, context, selected, excludeIds) {
   if (styleTargets.includes(item.style)) score += 24;
   if (context.style && context.style !== "cualquiera" && item.style === context.style) score += 14;
   if (item.season === seasonTarget) score += 22;
+  if (item.season === "todo el año") score += 8;
   if (item.season === "entretiempo") score += 6;
   if (context.climate === "lluvia" && [...TYPE_GROUPS.layer, ...TYPE_GROUPS.shoes].includes(item.type)) score += 8;
   if (context.climate === "lluvia" && ["botas", "zapatos"].includes(item.type)) score += 7;
@@ -317,6 +318,8 @@ function getLookMood(context, pieces) {
   const styles = pieces.map(piece => piece.style);
   if (context.style && context.style !== "cualquiera") return `${context.style} equilibrado`;
   if (styles.includes("streetwear")) return "streetwear relajado";
+  if (styles.includes("formal")) return "formal limpio";
+  if (styles.includes("minimalista")) return "minimalista pulido";
   if (styles.includes("elegante")) return "pulido sin esfuerzo";
   if (styles.includes("deportivo")) return "cómodo y funcional";
   return "casual equilibrado";
@@ -327,6 +330,10 @@ function areCompatibleStyles(a, b) {
     ["casual", "streetwear"],
     ["casual", "deportivo"],
     ["casual", "elegante"],
+    ["casual", "minimalista"],
+    ["elegante", "formal"],
+    ["elegante", "minimalista"],
+    ["formal", "minimalista"],
     ["streetwear", "deportivo"]
   ].some(pair => pair.includes(a) && pair.includes(b));
 }

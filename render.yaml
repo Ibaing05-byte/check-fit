@@ -10,10 +10,10 @@ services:
       - key: NODE_VERSION
         value: 20
       - key: FRONTEND_ORIGIN
-        value: https://ibaing05-byte.github.io,http://localhost:8000,http://127.0.0.1:8000
+        value: https://saclo.net,https://ibaing05-byte.github.io,http://localhost:8000,http://127.0.0.1:8000
       - key: OPENAI_VISION_MODEL
         value: gpt-4.1-mini
       - key: MAX_IMAGE_MB
-        value: 8
+        value: 6
       - key: OPENAI_API_KEY
         sync: false

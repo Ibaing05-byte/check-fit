@@ -17,7 +17,7 @@ import {
   saveOutfits,
   saveWardrobe
 } from "./storage.js";
-import { cropGarmentFromClosetImage, detectDominantColor, fileToDataUrl } from "./vision.js";
+import { cropGarmentFromClosetImage, detectDominantColor, fileToDataUrl, loadImage } from "./vision.js";
 import {
   cleanFileName,
   createImageElement,
@@ -33,7 +33,10 @@ import {
   updateWardrobeSummary
 } from "./wardrobe.js";
 
-const AI_API_BASE = window.SACLO_API_BASE || "http://localhost:3001";
+const DEFAULT_API_BASE_URL = "http://localhost:3000";
+const API_BASE_STORAGE_KEY = "sacloApiBaseUrl";
+const MAX_ANALYSIS_SIDE = 1400;
+const MAX_CLIENT_IMAGE_MB = 5.5;
 
 const elements = {
   heroItemCount: document.getElementById("heroItemCount"),
@@ -49,6 +52,10 @@ const elements = {
   homeWardrobeCount: document.getElementById("homeWardrobeCount"),
   unusedItemsCount: document.getElementById("unusedItemsCount"),
   favoriteOutfitCount: document.getElementById("favoriteOutfitCount"),
+  apiBaseUrl: document.getElementById("apiBaseUrl"),
+  saveApiBaseUrl: document.getElementById("saveApiBaseUrl"),
+  testApiConnection: document.getElementById("testApiConnection"),
+  apiConnectionStatus: document.getElementById("apiConnectionStatus"),
   singleModeButton: document.getElementById("singleModeButton"),
   closetModeButton: document.getElementById("closetModeButton"),
   singleItemForm: document.getElementById("singleItemForm"),
@@ -126,6 +133,7 @@ let filters = loadFilters();
 let outfits = loadOutfits();
 let engagement = touchEngagement(loadEngagement());
 let selectedPhoto = "";
+let selectedPhotoFileName = "";
 let closetImage = "";
 let cropArea = null;
 let dragState = null;
@@ -139,6 +147,7 @@ init();
 function init() {
   saveEngagement(engagement);
   hydrateSelects();
+  hydrateApiConfig();
   bindEvents();
   renderAll();
   setupNavigationState();
@@ -163,7 +172,13 @@ function hydrateSelects() {
   renderColorFilter();
 }
 
+function hydrateApiConfig() {
+  elements.apiBaseUrl.value = getApiBaseUrl();
+}
+
 function bindEvents() {
+  elements.saveApiBaseUrl.addEventListener("click", saveApiBaseUrl);
+  elements.testApiConnection.addEventListener("click", testApiConnection);
   elements.singleModeButton.addEventListener("click", () => setCaptureMode("single"));
   elements.closetModeButton.addEventListener("click", () => setCaptureMode("closet"));
   elements.photo.addEventListener("change", previewSinglePhoto);
@@ -192,6 +207,41 @@ function bindEvents() {
   elements.closeEditDialog.addEventListener("click", () => elements.editDialog.close());
 }
 
+function saveApiBaseUrl() {
+  const nextUrl = normalizeApiBaseUrl(elements.apiBaseUrl.value);
+  writeLocalValue(API_BASE_STORAGE_KEY, nextUrl);
+  elements.apiBaseUrl.value = nextUrl;
+  showStatus(elements.apiConnectionStatus, `Backend configurado en ${nextUrl}.`);
+  showToast("URL de IA guardada.");
+}
+
+async function testApiConnection() {
+  const apiBaseUrl = normalizeApiBaseUrl(elements.apiBaseUrl.value);
+  elements.apiBaseUrl.value = apiBaseUrl;
+  setButtonLoading(elements.testApiConnection, "Probando...");
+  showStatus(elements.apiConnectionStatus, "Comprobando conexión con el backend de análisis visual.");
+
+  try {
+    const response = await fetch(`${apiBaseUrl}/api/health`);
+    const payload = await response.json().catch(() => ({}));
+
+    if (!response.ok || payload.status !== "ok") {
+      throw new Error(payload.error || "El backend respondió, pero no confirmó estado ok.");
+    }
+
+    writeLocalValue(API_BASE_STORAGE_KEY, apiBaseUrl);
+    showStatus(elements.apiConnectionStatus, `${payload.service || "saclo-backend"} conectado. Ya puedes probar análisis visual en beta.`);
+    showToast("Backend de IA conectado.");
+  } catch (error) {
+    showStatus(
+      elements.apiConnectionStatus,
+      `${error.message || "No se pudo conectar con el backend."} SACLO seguirá funcionando con análisis local y recorte manual.`
+    );
+  } finally {
+    setButtonReady(elements.testApiConnection, "Probar conexión", true);
+  }
+}
+
 function setCaptureMode(mode) {
   const single = mode === "single";
   elements.singleModeButton.classList.toggle("active", single);
@@ -207,6 +257,7 @@ async function previewSinglePhoto(event) {
   if (!file) return;
 
   selectedPhoto = await fileToDataUrl(file);
+  selectedPhotoFileName = file.name;
   elements.preview.src = selectedPhoto;
   elements.preview.classList.add("visible");
 
@@ -241,8 +292,11 @@ async function analyzeSingleWithAI() {
   showStatus(elements.aiSingleStatus, "Análisis visual en beta en curso. Revisa los resultados antes de guardar.");
 
   try {
-    const payload = await requestVisionAnalysis("/api/analyze-garment", selectedPhoto);
+    const payload = await requestVisionAnalysis("/api/analyze-garment", selectedPhoto, {
+      filename: selectedPhotoFileName
+    });
     const garment = payload.garment;
+    if (!garment) throw new Error("El backend no devolvió una prenda válida.");
     applyGarmentSuggestion(garment);
     showStatus(
       elements.aiSingleStatus,
@@ -307,7 +361,7 @@ async function analyzeClosetWithAI() {
     if (!detected.length) {
       showStatus(
         elements.aiClosetStatus,
-        payload.message || "La imagen es confusa. Usa el recorte manual para crear prendas con más precisión."
+        payload.notes || "No se detectaron prendas claras. Usa el recorte manual para crear prendas con más precisión."
       );
       return;
     }
@@ -329,7 +383,7 @@ async function analyzeClosetWithAI() {
     renderAll();
     showStatus(
       elements.aiClosetStatus,
-      `${detected.length} prendas detectadas. ${payload.message || "Revisa los resultados antes de guardar."}`
+      `${detected.length} prendas detectadas. ${payload.notes || "Revisa los resultados antes de guardar."}`
     );
     elements.scanStatus.textContent = "También puedes seguir usando recorte asistido sobre la misma foto.";
     showToast("Prendas detectadas y enviadas a revisión.");
@@ -339,7 +393,7 @@ async function analyzeClosetWithAI() {
       `${error.message} El recorte manual sigue disponible como fallback.`
     );
   } finally {
-    setButtonReady(elements.analyzeClosetAI, "Analizar con IA", Boolean(closetImage));
+    setButtonReady(elements.analyzeClosetAI, "Analizar armario con IA", Boolean(closetImage));
   }
 }
 
@@ -488,6 +542,7 @@ function resetSingleForm() {
   elements.aiSingleStatus.hidden = true;
   elements.analyzeSingleAI.disabled = true;
   selectedPhoto = "";
+  selectedPhotoFileName = "";
 }
 
 function confirmDraft(id) {
@@ -908,25 +963,30 @@ function showToast(message) {
   }, 2600);
 }
 
-async function requestVisionAnalysis(endpoint, imageDataUrl) {
-  const formData = new FormData();
-  const blob = await dataUrlToBlob(imageDataUrl);
-  formData.append("image", blob, "saclo-image.jpg");
+async function requestVisionAnalysis(endpoint, imageDataUrl, options = {}) {
+  const image = await prepareImageForAnalysis(imageDataUrl);
+  const apiBaseUrl = getApiBaseUrl();
 
   let response;
   try {
-    response = await fetch(`${AI_API_BASE}${endpoint}`, {
+    response = await fetch(`${apiBaseUrl}${endpoint}`, {
       method: "POST",
-      body: formData
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        image,
+        filename: options.filename || ""
+      })
     });
   } catch {
-    throw new Error("El backend de IA no está activo o no permite la conexión.");
+    throw new Error(`No he podido conectar con el backend de IA en ${apiBaseUrl}.`);
   }
 
   const payload = await response.json().catch(() => ({}));
 
-  if (!response.ok || payload.ok === false) {
-    throw new Error(payload.error || "No se pudo completar el análisis visual en beta.");
+  if (!response.ok || payload.success === false) {
+    throw new Error(getVisionErrorMessage(payload, response.status));
   }
 
   return payload;
@@ -942,9 +1002,66 @@ function applyGarmentSuggestion(garment) {
   if (SEASONS.includes(garment.season)) elements.season.value = garment.season;
 }
 
-async function dataUrlToBlob(dataUrl) {
-  const response = await fetch(dataUrl);
-  return response.blob();
+async function prepareImageForAnalysis(imageDataUrl) {
+  const image = await loadImage(imageDataUrl);
+  const width = image.naturalWidth || image.width;
+  const height = image.naturalHeight || image.height;
+  const ratio = Math.min(1, MAX_ANALYSIS_SIDE / Math.max(width, height));
+  const canvas = document.createElement("canvas");
+  const context = canvas.getContext("2d");
+
+  canvas.width = Math.max(1, Math.round(width * ratio));
+  canvas.height = Math.max(1, Math.round(height * ratio));
+  context.drawImage(image, 0, 0, canvas.width, canvas.height);
+
+  const optimized = canvas.toDataURL("image/jpeg", 0.82);
+  if (estimateDataUrlSizeMb(optimized) > MAX_CLIENT_IMAGE_MB) {
+    throw new Error("La imagen sigue siendo demasiado grande para analizar. Prueba con una foto más ligera o recorta la zona principal.");
+  }
+
+  return optimized;
+}
+
+function getVisionErrorMessage(payload, status) {
+  const code = payload.code || "";
+  if (code === "MISSING_OPENAI_API_KEY") return "El backend está activo, pero falta configurar OPENAI_API_KEY.";
+  if (code === "OPENAI_ERROR") return payload.error || "OpenAI no pudo completar el análisis visual.";
+  if (code === "IMAGE_TOO_LARGE" || status === 413) return payload.error || "La imagen es demasiado grande para el análisis visual.";
+  if (code === "INVALID_IMAGE_FORMAT") return "Formato de imagen no válido. Usa JPG, PNG o WEBP.";
+  if (code === "INVALID_AI_RESPONSE") return "La IA devolvió una respuesta que no se pudo validar.";
+  if (status === 404) return "No encuentro este endpoint en el backend configurado.";
+  if (status >= 500) return payload.error || "El backend tuvo un error al hablar con OpenAI.";
+  return payload.error || "No se pudo completar el análisis visual en beta.";
+}
+
+function getApiBaseUrl() {
+  return normalizeApiBaseUrl(readLocalValue(API_BASE_STORAGE_KEY, window.SACLO_API_BASE || DEFAULT_API_BASE_URL));
+}
+
+function normalizeApiBaseUrl(value) {
+  const raw = String(value || "").trim() || DEFAULT_API_BASE_URL;
+  return raw.replace(/\/+$/, "");
+}
+
+function readLocalValue(key, fallback = "") {
+  try {
+    return localStorage.getItem(key) || fallback;
+  } catch {
+    return fallback;
+  }
+}
+
+function writeLocalValue(key, value) {
+  try {
+    localStorage.setItem(key, value);
+  } catch {
+    // El análisis visual sigue disponible durante la sesión aunque el navegador bloquee localStorage.
+  }
+}
+
+function estimateDataUrlSizeMb(dataUrl) {
+  const base64 = String(dataUrl).split(",")[1] || "";
+  return (base64.length * 3 / 4) / (1024 * 1024);
 }
 
 function formatConfidence(confidence) {

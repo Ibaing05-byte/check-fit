@@ -5,11 +5,11 @@
  * 1. Entra en https://script.google.com/ con tu cuenta de Google.
  * 2. Crea un proyecto nuevo.
  * 3. Copia este archivo en el editor, sustituyendo el contenido de Code.gs.
- * 4. Ejecuta la funcion createCheckFitBetaFeedbackForm.
+ * 4. Ejecuta la funcion createSacloBetaFeedbackForm.
  * 5. Acepta los permisos que pida Google.
  * 6. Abre Ver > Registros para copiar la URL de edicion y la URL para compartir.
  */
-function createCheckFitBetaFeedbackForm() {
+function createSacloBetaFeedbackForm() {
   var form = FormApp.create('Feedback Beta — SACLO');
 
   form.setDescription(
@@ -18,7 +18,7 @@ function createCheckFitBetaFeedbackForm() {
 
   form.addSectionHeaderItem()
     .setTitle('Prueba la app')
-    .setHelpText('Link de la app: https://ibaing05-byte.github.io/check-fit/');
+    .setHelpText('Link de la app: https://saclo.net');
 
   addShortTextQuestion(form, 'Nombre o iniciales', true);
 
