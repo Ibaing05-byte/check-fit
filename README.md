@@ -54,16 +54,9 @@ Los errores visibles son humanos y no exponen claves, modelos, proveedor ni deta
 
 Consejo para mejores resultados: buena luz, prenda separada y fondo claro. Si la confianza baja de 70%, SACLO marca `Revisar recomendado`.
 
-## Modo Dev Oculto
+## Backend interno
 
-La configuración técnica solo aparece en modo desarrollador:
-
-- Añadiendo `?dev=true` a la URL.
-- O haciendo 5 clics sobre el logo de SACLO.
-
-En ese modo se puede cambiar temporalmente la API URL, probar conexión y ver el estado del servicio. Esta sección queda oculta para usuarios finales.
-
-## Backend
+No hay modo dev ni configuración técnica dentro de la app pública. El usuario no puede ver ni cambiar la URL de API desde SACLO.
 
 El backend está en `backend/`.
 

@@ -35,7 +35,7 @@ import {
 
 const DEFAULT_API_BASE_URL = "https://check-fit.onrender.com";
 const API_BASE_STORAGE_KEY = "sacloApiBaseUrl";
-const DEV_MODE_STORAGE_KEY = "sacloDevMode";
+const LEGACY_API_STORAGE_KEYS = ["checkFitApiUrl", "sacloApiUrl", "sacloDevMode"];
 const LEGACY_LOCAL_API_URLS = new Set([
   "http://localhost:3000",
   "http://localhost:3001",
@@ -60,12 +60,6 @@ const elements = {
   homeWardrobeCount: document.getElementById("homeWardrobeCount"),
   unusedItemsCount: document.getElementById("unusedItemsCount"),
   favoriteOutfitCount: document.getElementById("favoriteOutfitCount"),
-  brandLockup: document.getElementById("brandLockup"),
-  devPanel: document.getElementById("devPanel"),
-  apiBaseUrl: document.getElementById("apiBaseUrl"),
-  saveApiBaseUrl: document.getElementById("saveApiBaseUrl"),
-  testApiConnection: document.getElementById("testApiConnection"),
-  apiConnectionStatus: document.getElementById("apiConnectionStatus"),
   singleModeButton: document.getElementById("singleModeButton"),
   closetModeButton: document.getElementById("closetModeButton"),
   singleItemForm: document.getElementById("singleItemForm"),
@@ -152,17 +146,13 @@ let currentOutfit = null;
 let cropPreviewPhoto = "";
 let cropPreviewColor = "";
 let toastTimeout = 0;
-let logoClickCount = 0;
-let logoClickTimer = 0;
-let devMode = isDevModeEnabled();
 
 init();
 
 function init() {
   saveEngagement(engagement);
+  cleanupLegacyApiConfig();
   hydrateSelects();
-  hydrateApiConfig();
-  hydrateDevMode();
   bindEvents();
   renderAll();
   setupNavigationState();
@@ -187,18 +177,7 @@ function hydrateSelects() {
   renderColorFilter();
 }
 
-function hydrateApiConfig() {
-  elements.apiBaseUrl.value = getApiBaseUrl();
-}
-
-function hydrateDevMode() {
-  elements.devPanel.hidden = !devMode;
-}
-
 function bindEvents() {
-  elements.brandLockup.addEventListener("click", handleBrandClick);
-  elements.saveApiBaseUrl.addEventListener("click", saveApiBaseUrl);
-  elements.testApiConnection.addEventListener("click", testApiConnection);
   elements.singleModeButton.addEventListener("click", () => setCaptureMode("single"));
   elements.closetModeButton.addEventListener("click", () => setCaptureMode("closet"));
   elements.photo.addEventListener("change", previewSinglePhoto);
@@ -225,56 +204,6 @@ function bindEvents() {
   elements.wearOutfitButton.addEventListener("click", markCurrentOutfitUsed);
   elements.editItemForm.addEventListener("submit", saveEditedItem);
   elements.closeEditDialog.addEventListener("click", () => elements.editDialog.close());
-}
-
-function handleBrandClick() {
-  logoClickCount += 1;
-  clearTimeout(logoClickTimer);
-  logoClickTimer = setTimeout(() => {
-    logoClickCount = 0;
-  }, 1600);
-
-  if (logoClickCount < 5) return;
-  logoClickCount = 0;
-  devMode = true;
-  writeLocalValue(DEV_MODE_STORAGE_KEY, "true");
-  hydrateDevMode();
-  showToast("Modo desarrollador activado.");
-}
-
-function saveApiBaseUrl() {
-  const nextUrl = resolveApiBaseUrl(elements.apiBaseUrl.value);
-  writeLocalValue(API_BASE_STORAGE_KEY, nextUrl);
-  elements.apiBaseUrl.value = nextUrl;
-  showStatus(elements.apiConnectionStatus, `Servicio configurado en ${nextUrl}.`);
-  showToast("URL de análisis guardada.");
-}
-
-async function testApiConnection() {
-  const apiBaseUrl = resolveApiBaseUrl(elements.apiBaseUrl.value);
-  elements.apiBaseUrl.value = apiBaseUrl;
-  setButtonLoading(elements.testApiConnection, "Probando...");
-  showStatus(elements.apiConnectionStatus, "Comprobando conexión del servicio de análisis.");
-
-  try {
-    const response = await fetch(`${apiBaseUrl}/api/health`);
-    const payload = await response.json().catch(() => ({}));
-
-    if (!response.ok || payload.status !== "ok") {
-      throw new Error(payload.error || "El servicio respondió, pero no confirmó estado ok.");
-    }
-
-    writeLocalValue(API_BASE_STORAGE_KEY, apiBaseUrl);
-    showStatus(elements.apiConnectionStatus, `${payload.service || "servicio de análisis"} conectado.`);
-    showToast("Servicio de análisis conectado.");
-  } catch (error) {
-    showStatus(
-      elements.apiConnectionStatus,
-      `${error.message || "No se pudo comprobar la conexión."}`
-    );
-  } finally {
-    setButtonReady(elements.testApiConnection, "Probar conexión", true);
-  }
 }
 
 function setCaptureMode(mode) {
@@ -1147,16 +1076,6 @@ function getVisionErrorMessage(payload, status) {
 }
 
 function getApiBaseUrl() {
-  const injectedUrl = normalizeApiBaseUrl(window.SACLO_API_BASE);
-  if (injectedUrl) return injectedUrl;
-
-  const storedUrl = normalizeApiBaseUrl(readLocalValue(API_BASE_STORAGE_KEY, ""));
-  if (storedUrl && LEGACY_LOCAL_API_URLS.has(storedUrl)) {
-    removeLocalValue(API_BASE_STORAGE_KEY);
-    return DEFAULT_API_BASE_URL;
-  }
-  if (devMode && storedUrl) return storedUrl;
-
   return DEFAULT_API_BASE_URL;
 }
 
@@ -1170,10 +1089,6 @@ function getUserFacingAnalysisError(error, context = "single") {
   return context === "closet"
     ? "No se detectaron prendas claras. Intenta con mejor luz o prendas menos superpuestas."
     : "No hemos podido analizar esta imagen. Prueba con otra foto más clara.";
-}
-
-function resolveApiBaseUrl(value) {
-  return normalizeApiBaseUrl(value) || DEFAULT_API_BASE_URL;
 }
 
 function normalizeApiBaseUrl(value) {
@@ -1194,7 +1109,7 @@ function writeLocalValue(key, value) {
   try {
     localStorage.setItem(key, value);
   } catch {
-    // El análisis visual sigue disponible durante la sesión aunque el navegador bloquee localStorage.
+    // SACLO sigue funcionando durante la sesión aunque el navegador bloquee localStorage.
   }
 }
 
@@ -1206,10 +1121,12 @@ function removeLocalValue(key) {
   }
 }
 
-function isDevModeEnabled() {
-  const params = new URLSearchParams(window.location.search);
-  if (params.get("dev") === "true") return true;
-  return readLocalValue(DEV_MODE_STORAGE_KEY, "") === "true";
+function cleanupLegacyApiConfig() {
+  LEGACY_API_STORAGE_KEYS.forEach(removeLocalValue);
+  const storedUrl = normalizeApiBaseUrl(readLocalValue(API_BASE_STORAGE_KEY, ""));
+  if (!storedUrl || LEGACY_LOCAL_API_URLS.has(storedUrl) || storedUrl !== DEFAULT_API_BASE_URL) {
+    removeLocalValue(API_BASE_STORAGE_KEY);
+  }
 }
 
 function estimateDataUrlSizeMb(dataUrl) {
