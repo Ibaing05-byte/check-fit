@@ -35,6 +35,7 @@ import {
 
 const DEFAULT_API_BASE_URL = "https://check-fit.onrender.com";
 const API_BASE_STORAGE_KEY = "sacloApiBaseUrl";
+const DEV_MODE_STORAGE_KEY = "sacloDevMode";
 const LEGACY_LOCAL_API_URLS = new Set([
   "http://localhost:3000",
   "http://localhost:3001",
@@ -59,6 +60,8 @@ const elements = {
   homeWardrobeCount: document.getElementById("homeWardrobeCount"),
   unusedItemsCount: document.getElementById("unusedItemsCount"),
   favoriteOutfitCount: document.getElementById("favoriteOutfitCount"),
+  brandLockup: document.getElementById("brandLockup"),
+  devPanel: document.getElementById("devPanel"),
   apiBaseUrl: document.getElementById("apiBaseUrl"),
   saveApiBaseUrl: document.getElementById("saveApiBaseUrl"),
   testApiConnection: document.getElementById("testApiConnection"),
@@ -149,6 +152,9 @@ let currentOutfit = null;
 let cropPreviewPhoto = "";
 let cropPreviewColor = "";
 let toastTimeout = 0;
+let logoClickCount = 0;
+let logoClickTimer = 0;
+let devMode = isDevModeEnabled();
 
 init();
 
@@ -156,6 +162,7 @@ function init() {
   saveEngagement(engagement);
   hydrateSelects();
   hydrateApiConfig();
+  hydrateDevMode();
   bindEvents();
   renderAll();
   setupNavigationState();
@@ -184,7 +191,12 @@ function hydrateApiConfig() {
   elements.apiBaseUrl.value = getApiBaseUrl();
 }
 
+function hydrateDevMode() {
+  elements.devPanel.hidden = !devMode;
+}
+
 function bindEvents() {
+  elements.brandLockup.addEventListener("click", handleBrandClick);
   elements.saveApiBaseUrl.addEventListener("click", saveApiBaseUrl);
   elements.testApiConnection.addEventListener("click", testApiConnection);
   elements.singleModeButton.addEventListener("click", () => setCaptureMode("single"));
@@ -215,35 +227,50 @@ function bindEvents() {
   elements.closeEditDialog.addEventListener("click", () => elements.editDialog.close());
 }
 
+function handleBrandClick() {
+  logoClickCount += 1;
+  clearTimeout(logoClickTimer);
+  logoClickTimer = setTimeout(() => {
+    logoClickCount = 0;
+  }, 1600);
+
+  if (logoClickCount < 5) return;
+  logoClickCount = 0;
+  devMode = true;
+  writeLocalValue(DEV_MODE_STORAGE_KEY, "true");
+  hydrateDevMode();
+  showToast("Modo desarrollador activado.");
+}
+
 function saveApiBaseUrl() {
   const nextUrl = resolveApiBaseUrl(elements.apiBaseUrl.value);
   writeLocalValue(API_BASE_STORAGE_KEY, nextUrl);
   elements.apiBaseUrl.value = nextUrl;
-  showStatus(elements.apiConnectionStatus, `Backend configurado en ${nextUrl}.`);
-  showToast("URL de IA guardada.");
+  showStatus(elements.apiConnectionStatus, `Servicio configurado en ${nextUrl}.`);
+  showToast("URL de análisis guardada.");
 }
 
 async function testApiConnection() {
   const apiBaseUrl = resolveApiBaseUrl(elements.apiBaseUrl.value);
   elements.apiBaseUrl.value = apiBaseUrl;
   setButtonLoading(elements.testApiConnection, "Probando...");
-  showStatus(elements.apiConnectionStatus, "Comprobando conexión con el backend de análisis visual.");
+  showStatus(elements.apiConnectionStatus, "Comprobando conexión del servicio de análisis.");
 
   try {
     const response = await fetch(`${apiBaseUrl}/api/health`);
     const payload = await response.json().catch(() => ({}));
 
     if (!response.ok || payload.status !== "ok") {
-      throw new Error(payload.error || "El backend respondió, pero no confirmó estado ok.");
+      throw new Error(payload.error || "El servicio respondió, pero no confirmó estado ok.");
     }
 
     writeLocalValue(API_BASE_STORAGE_KEY, apiBaseUrl);
-    showStatus(elements.apiConnectionStatus, `${payload.service || "saclo-backend"} conectado. Ya puedes probar análisis visual en beta.`);
-    showToast("Backend de IA conectado.");
+    showStatus(elements.apiConnectionStatus, `${payload.service || "servicio de análisis"} conectado.`);
+    showToast("Servicio de análisis conectado.");
   } catch (error) {
     showStatus(
       elements.apiConnectionStatus,
-      `${error.message || "No se pudo conectar con el backend."} SACLO seguirá funcionando con análisis local y recorte manual.`
+      `${error.message || "No se pudo comprobar la conexión."}`
     );
   } finally {
     setButtonReady(elements.testApiConnection, "Probar conexión", true);
@@ -288,13 +315,13 @@ async function previewSinglePhoto(event) {
       ? `He leído “${fileColor}” del nombre del archivo y lo he dejado listo para revisar.`
       : detectedColor
         ? `Color detectado por análisis visual: ${detectedColor}. Puedes corregirlo si quieres.`
-        : "No he podido detectar un color claro. Puedes escribirlo manualmente."
+        : "No hemos detectado un color claro. Puedes ajustarlo tú."
   );
 }
 
 async function analyzeSingleWithAI() {
   if (!selectedPhoto) {
-    showStatus(elements.aiSingleStatus, "Sube una foto de prenda antes de analizar con IA.");
+    showStatus(elements.aiSingleStatus, "Sube una foto de prenda antes de analizar.");
     return;
   }
 
@@ -307,7 +334,7 @@ async function analyzeSingleWithAI() {
       filename: selectedPhotoFileName
     });
     const garment = payload.garment;
-    if (!garment) throw new Error("El backend no devolvió una prenda válida.");
+    if (!garment) throw new Error("No hemos podido analizar esta imagen. Prueba con otra foto más clara.");
     applyGarmentSuggestion(garment);
     renderConfidenceBadge(garment.confidence);
     showStatus(
@@ -318,10 +345,10 @@ async function analyzeSingleWithAI() {
   } catch (error) {
     showStatus(
       elements.aiSingleStatus,
-      `${error.message} Puedes seguir con el autocompletado local o el recorte manual.`
+      getUserFacingAnalysisError(error)
     );
   } finally {
-    setButtonReady(elements.analyzeSingleAI, "Analizar con IA", Boolean(selectedPhoto));
+    setButtonReady(elements.analyzeSingleAI, "Analizar prenda", Boolean(selectedPhoto));
   }
 }
 
@@ -354,12 +381,12 @@ async function previewClosetPhoto(event) {
   elements.analyzeClosetAI.disabled = false;
   resetCropSelection();
   elements.scanStatus.textContent = "Arrastra sobre una prenda. Verás una preview antes de guardarla.";
-  showStatus(elements.aiClosetStatus, "IA visual en beta lista. Mejor resultado con buena luz, prendas separadas y fondo claro.");
+  showStatus(elements.aiClosetStatus, "Análisis inteligente listo. Mejor con buena luz y prendas visibles.");
 }
 
 async function analyzeClosetWithAI() {
   if (!closetImage) {
-    showStatus(elements.aiClosetStatus, "Sube una foto del armario antes de analizar con IA.");
+    showStatus(elements.aiClosetStatus, "Sube una foto del armario antes de detectar prendas.");
     return;
   }
 
@@ -373,9 +400,9 @@ async function analyzeClosetWithAI() {
     if (!detected.length) {
       showStatus(
         elements.aiClosetStatus,
-        payload.notes || "No se detectaron prendas claras. Usa el recorte manual para crear prendas con más precisión."
+        payload.notes || "No se detectaron prendas claras. Intenta con mejor luz o prendas menos superpuestas."
       );
-      elements.scanStatus.textContent = "No hay detección clara. Puedes seleccionar prendas manualmente con el recorte asistido.";
+      elements.scanStatus.textContent = "No se detectaron prendas claras. Prueba con una foto más iluminada o selecciona una zona concreta.";
       return;
     }
 
@@ -389,7 +416,7 @@ async function analyzeClosetWithAI() {
         photo: closetImage,
         confidence: Number(garment.confidence || 0),
         description: garment.description || "",
-        source: `Análisis visual en beta · ${formatConfidence(garment.confidence)}`
+        source: `Análisis inteligente · ${formatConfidence(garment.confidence)}`
       })),
       ...drafts
     ];
@@ -405,10 +432,10 @@ async function analyzeClosetWithAI() {
   } catch (error) {
     showStatus(
       elements.aiClosetStatus,
-      `${error.message} El recorte manual sigue disponible como fallback.`
+      getUserFacingAnalysisError(error, "closet")
     );
   } finally {
-    setButtonReady(elements.analyzeClosetAI, "Detectar prendas con IA", Boolean(closetImage));
+    setButtonReady(elements.analyzeClosetAI, "Detectar prendas", Boolean(closetImage));
   }
 }
 
@@ -510,7 +537,7 @@ async function prepareCropPreview() {
   elements.cropPreviewTitle.textContent = buildCropDraftName(cropPreviewColor);
   elements.cropPreviewMeta.textContent = cropPreviewColor
     ? `Color dominante del recorte: ${cropPreviewColor}`
-    : "Color pendiente de revisar manualmente";
+    : "Color pendiente de ajustar";
   elements.cropPreviewPanel.hidden = false;
 }
 
@@ -1021,7 +1048,7 @@ function renderConfidenceBadge(confidence) {
     elements.singleConfidence.hidden = false;
     const loading = document.createElement("span");
     loading.className = "confidence-pill loading";
-    loading.textContent = "IA visual en beta";
+    loading.textContent = "Análisis inteligente";
     elements.singleConfidence.appendChild(loading);
     return;
   }
@@ -1069,7 +1096,7 @@ async function requestVisionAnalysis(endpoint, imageDataUrl, options = {}) {
       })
     });
   } catch {
-    throw new Error(`No he podido conectar con el backend de IA en ${apiBaseUrl}.`);
+    throw new Error("El análisis inteligente no está disponible ahora mismo. Inténtalo más tarde.");
   }
 
   const payload = await response.json().catch(() => ({}));
@@ -1113,14 +1140,10 @@ async function prepareImageForAnalysis(imageDataUrl) {
 
 function getVisionErrorMessage(payload, status) {
   const code = payload.code || "";
-  if (code === "MISSING_OPENAI_API_KEY") return "El backend está activo, pero falta configurar OPENAI_API_KEY.";
-  if (code === "OPENAI_ERROR") return payload.error || "OpenAI no pudo completar el análisis visual.";
-  if (code === "IMAGE_TOO_LARGE" || status === 413) return payload.error || "La imagen es demasiado grande para el análisis visual.";
-  if (code === "INVALID_IMAGE_FORMAT") return "Formato de imagen no válido. Usa JPG, PNG o WEBP.";
-  if (code === "INVALID_AI_RESPONSE") return "La IA devolvió una respuesta que no se pudo validar.";
-  if (status === 404) return "No encuentro este endpoint en el backend configurado.";
-  if (status >= 500) return payload.error || "El backend tuvo un error al hablar con OpenAI.";
-  return payload.error || "No se pudo completar el análisis visual en beta.";
+  if (code === "IMAGE_TOO_LARGE" || status === 413) return "La imagen es demasiado grande. Prueba con una foto más ligera o recortada.";
+  if (code === "INVALID_IMAGE_FORMAT") return "No hemos podido leer esta imagen. Prueba con otra foto.";
+  if (status >= 500 || code === "MISSING_OPENAI_API_KEY" || code === "OPENAI_ERROR") return "El análisis inteligente no está disponible ahora mismo. Inténtalo más tarde.";
+  return "No hemos podido analizar esta imagen. Prueba con otra foto más clara.";
 }
 
 function getApiBaseUrl() {
@@ -1128,12 +1151,25 @@ function getApiBaseUrl() {
   if (injectedUrl) return injectedUrl;
 
   const storedUrl = normalizeApiBaseUrl(readLocalValue(API_BASE_STORAGE_KEY, ""));
-  if (storedUrl && !LEGACY_LOCAL_API_URLS.has(storedUrl)) return storedUrl;
   if (storedUrl && LEGACY_LOCAL_API_URLS.has(storedUrl)) {
-    writeLocalValue(API_BASE_STORAGE_KEY, DEFAULT_API_BASE_URL);
+    removeLocalValue(API_BASE_STORAGE_KEY);
+    return DEFAULT_API_BASE_URL;
   }
+  if (devMode && storedUrl) return storedUrl;
 
   return DEFAULT_API_BASE_URL;
+}
+
+function getUserFacingAnalysisError(error, context = "single") {
+  const message = String(error?.message || "");
+  if (message.includes("demasiado grande")) return message;
+  if (context === "closet" && message.includes("detectaron prendas claras")) {
+    return "No se detectaron prendas claras. Intenta con mejor luz o prendas menos superpuestas.";
+  }
+  if (message.includes("no está disponible")) return "El análisis inteligente no está disponible ahora mismo. Inténtalo más tarde.";
+  return context === "closet"
+    ? "No se detectaron prendas claras. Intenta con mejor luz o prendas menos superpuestas."
+    : "No hemos podido analizar esta imagen. Prueba con otra foto más clara.";
 }
 
 function resolveApiBaseUrl(value) {
@@ -1160,6 +1196,20 @@ function writeLocalValue(key, value) {
   } catch {
     // El análisis visual sigue disponible durante la sesión aunque el navegador bloquee localStorage.
   }
+}
+
+function removeLocalValue(key) {
+  try {
+    localStorage.removeItem(key);
+  } catch {
+    // El valor por defecto online se usará igualmente si el navegador bloquea localStorage.
+  }
+}
+
+function isDevModeEnabled() {
+  const params = new URLSearchParams(window.location.search);
+  if (params.get("dev") === "true") return true;
+  return readLocalValue(DEV_MODE_STORAGE_KEY, "") === "true";
 }
 
 function estimateDataUrlSizeMb(dataUrl) {

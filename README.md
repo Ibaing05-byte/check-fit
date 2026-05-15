@@ -8,19 +8,20 @@ SACLO es un asistente inteligente de armario y outfits con IA. Convierte tu arma
 
 - Armario visual guardado en `localStorage`, sin login ni base de datos todavía.
 - Alta rápida de prendas con foto, nombre sugerido desde archivo y color calculado localmente.
-- Análisis visual real opcional mediante backend Node.js + Express + OpenAI Vision.
+- Análisis inteligente conectado por defecto al servicio online.
 - Revisión asistida: la IA propone datos, muestra confianza y el usuario corrige antes de guardar.
-- Creación de prendas desde una foto del armario con recorte manual como fallback.
+- Creación de prendas desde una foto del armario con selección asistida como alternativa.
 - Recomendador de outfits por ocasión, clima, temperatura, estilo, temporada, color y rotación de uso.
 - Home tipo app móvil con “Hoy en SACLO”, outfit del día, racha, prendas sin usar, último outfit usado, favoritos e historial visual.
 
-## Frontend sin backend
+## Experiencia de usuario
 
-La app publicada en `https://saclo.net` sigue funcionando aunque el backend no esté activo:
+La app publicada en `https://saclo.net` no muestra configuración técnica a usuarios finales:
 
 - Puedes añadir prendas manualmente.
 - SACLO detecta color localmente con `canvas`.
-- Puedes crear prendas desde una foto del armario usando recorte asistido.
+- Puedes analizar una prenda o detectar prendas desde una foto del armario.
+- Puedes crear prendas desde una foto del armario usando selección asistida.
 - El armario, favoritos, outfits e historial se guardan en el navegador con `localStorage`.
 
 Para probar en local:
@@ -31,27 +32,36 @@ python3 -m http.server 8000
 
 Abre `http://localhost:8000`.
 
-## Frontend con backend
+## Análisis inteligente
 
-Cuando el backend esté activo, la sección `IA beta` permite configurar la URL de API.
-
-Por defecto usa:
+El frontend usa siempre este servicio online por defecto:
 
 ```text
 https://check-fit.onrender.com
 ```
 
-Desde la app puedes:
+Para el usuario normal no hay campo de API, Render, OpenAI ni configuración interna. El flujo visible es:
 
-1. Cambiar la URL del backend.
-2. Guardarla en `localStorage`.
-3. Pulsar `Probar conexión`.
-4. Usar `Analizar con IA` en prenda individual.
-5. Usar `Detectar prendas con IA` desde una foto de armario.
+1. Subir foto.
+2. Analizar prenda o detectar prendas.
+3. Revisar resultados.
+4. Guardar prendas.
+5. Crear outfit.
 
-Si el análisis falla, SACLO muestra un error claro y mantiene el flujo local. Los valores antiguos de desarrollo como `http://localhost:3000` se migran automáticamente al backend online de Render.
+Si existía una configuración antigua con `localhost`, SACLO la borra automáticamente y vuelve a usar `https://check-fit.onrender.com`.
+
+Los errores visibles son humanos y no exponen claves, modelos, proveedor ni detalles técnicos.
 
 Consejo para mejores resultados: buena luz, prenda separada y fondo claro. Si la confianza baja de 70%, SACLO marca `Revisar recomendado`.
+
+## Modo Dev Oculto
+
+La configuración técnica solo aparece en modo desarrollador:
+
+- Añadiendo `?dev=true` a la URL.
+- O haciendo 5 clics sobre el logo de SACLO.
+
+En ese modo se puede cambiar temporalmente la API URL, probar conexión y ver el estado del servicio. Esta sección queda oculta para usuarios finales.
 
 ## Backend
 
@@ -125,7 +135,7 @@ Devuelve hasta 8 prendas claramente visibles y una nota de revisión. No debe in
 ## Mejoras recientes de UX
 
 - Loading premium con `Analizando prenda...` y `Detectando prendas...`.
-- Badge de confianza para resultados de IA visual en beta.
+- Badge de confianza para resultados de análisis inteligente.
 - Aviso `Revisar recomendado` cuando la confianza baja de 70%.
 - Tarjetas independientes para prendas detectadas, editables antes de guardar.
 - Notas de la IA visibles en revisión asistida.
@@ -136,12 +146,12 @@ Devuelve hasta 8 prendas claramente visibles y una nota de revisión. No debe in
 
 - `index.html`: estructura principal de SACLO.
 - `styles.css`: interfaz oscura, responsive y mobile-first.
-- `app.js`: estado de UI, eventos, integración opcional con backend y renderizado.
+- `app.js`: estado de UI, eventos, integración con el servicio de análisis y renderizado.
 - `data.js`: catálogos de tipos, colores, estilos, temporadas y reglas compartidas.
 - `storage.js`: persistencia local y normalización de datos.
 - `wardrobe.js`: utilidades de armario, filtros, inferencias y tarjetas.
 - `outfits.js`: motor de recomendación, explicación, historial y uso.
-- `vision.js`: color local, recorte manual y puntos preparados para visión.
+- `vision.js`: color local, selección asistida y puntos preparados para visión.
 - `backend/server.js`: API Express con OpenAI Vision y Structured Outputs.
 
 ## Seguridad
@@ -154,15 +164,15 @@ Devuelve hasta 8 prendas claramente visibles y una nota de revisión. No debe in
 
 ## Limitaciones actuales
 
-- La IA visual está en beta y puede equivocarse con prendas superpuestas, fotos oscuras o imágenes borrosas.
-- En fotos de armario, SACLO prioriza prendas claramente visibles y pide revisión manual.
+- La detección puede variar según la calidad de foto, luz y superposición de prendas.
+- En fotos de armario, SACLO prioriza prendas claramente visibles y pide revisión antes de guardar.
 - Las imágenes se guardan localmente en el navegador; un armario grande puede ocupar espacio.
 - No hay sincronización entre dispositivos.
 - El outfit engine es local y basado en reglas; todavía no aprende de preferencias personales.
 
 ## Roadmap
 
-1. Desplegar backend estable para la beta privada.
+1. Estabilizar el servicio online para uso diario.
 2. Añadir almacenamiento de imágenes y sincronización entre dispositivos.
 3. Mejorar segmentación real de prendas desde armarios completos.
 4. Incorporar preferencias personales y feedback de outfits.

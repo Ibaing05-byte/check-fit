@@ -15,11 +15,11 @@
   <div class="app-shell">
     <header id="home" class="app-hero app-screen" aria-label="Inicio de SACLO">
       <nav class="topbar" aria-label="Resumen de producto">
-        <a class="brand-lockup" href="#home" aria-label="SACLO">
+        <a id="brandLockup" class="brand-lockup" href="#home" aria-label="SACLO">
           <img class="brand-logo" src="assets/app-icon-saclo.png" alt="SACLO" />
           <span class="brand-mark">SACLO</span>
         </a>
-        <span class="beta-pill">Private beta</span>
+        <span class="beta-pill">Fashion-tech</span>
       </nav>
       <section class="hero-grid">
         <div class="hero-copy">
@@ -104,11 +104,11 @@
         </article>
       </section>
 
-      <section class="surface api-config" aria-label="Configuración beta de IA">
+      <section id="devPanel" class="surface api-config dev-panel" aria-label="Configuración de desarrollador" hidden>
         <div>
-          <p class="eyebrow">IA beta</p>
-          <h2>Conexión de análisis visual</h2>
-          <p>Conecta el backend para probar OpenAI Vision. Si está apagado, SACLO sigue funcionando con análisis local y recorte manual.</p>
+          <p class="eyebrow">Modo dev</p>
+          <h2>Configuración de análisis</h2>
+          <p>Herramientas internas para comprobar la conexión del servicio.</p>
         </div>
         <div class="api-config-controls">
           <label>
@@ -152,10 +152,10 @@
             <div id="singleConfidence" class="confidence-row" hidden></div>
             <div class="ai-panel">
               <div>
-                <p class="eyebrow">IA visual en beta</p>
-                <small>Revisa los resultados antes de guardar. La IA puede equivocarse con fotos oscuras o prendas superpuestas.</small>
+                <p class="eyebrow">Análisis inteligente</p>
+                <small>Revisa los resultados antes de guardar. La detección puede variar según la calidad de la foto.</small>
               </div>
-              <button id="analyzeSingleAI" class="primary" type="button" disabled>Analizar con IA</button>
+              <button id="analyzeSingleAI" class="primary" type="button" disabled>Analizar prenda</button>
             </div>
             <p id="aiSingleStatus" class="status-note" hidden></p>
 
@@ -198,10 +198,10 @@
             </label>
             <div class="ai-panel">
               <div>
-                <p class="eyebrow">IA visual en beta</p>
-                <small>Detecta prendas visibles y las manda a revisión. Si la foto es confusa, usa el recorte manual.</small>
+                <p class="eyebrow">Análisis inteligente</p>
+                <small>Detecta prendas visibles y las deja listas para revisar antes de guardar.</small>
               </div>
-              <button id="analyzeClosetAI" class="primary" type="button" disabled>Detectar prendas con IA</button>
+              <button id="analyzeClosetAI" class="primary" type="button" disabled>Detectar prendas</button>
             </div>
             <p id="aiClosetStatus" class="status-note" hidden></p>
 
