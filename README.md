@@ -11,6 +11,8 @@ SACLO es un asistente inteligente de armario y outfits con IA. Convierte tu arma
 - Análisis inteligente conectado por defecto al servicio online.
 - Revisión asistida: el análisis propone datos, muestra confianza y el usuario corrige antes de guardar.
 - Digitalización de armario por zonas: camisetas, pantalones, chaquetas, zapatillas o accesorios.
+- Subida múltiple de prendas sueltas: cada foto se analiza como una prenda independiente.
+- Revisión rápida con guardar, corregir tipo en un toque o descartar.
 - Creación de prendas desde una zona del armario con selección asistida como alternativa.
 - Recomendador de outfits por ocasión, clima, temperatura, estilo, temporada, color y rotación de uso.
 - Home tipo app móvil con “Hoy en SACLO”, outfit del día, racha, prendas sin usar, último outfit usado, favoritos e historial visual.
@@ -22,6 +24,7 @@ La app publicada en `https://saclo.net` no muestra configuración técnica a usu
 - Puedes añadir prendas manualmente.
 - SACLO detecta color localmente con `canvas`.
 - Puedes analizar una prenda o detectar prendas visibles desde una zona del armario.
+- Puedes seleccionar varias fotos de prendas sueltas y revisarlas juntas.
 - Puedes crear prendas desde una zona del armario usando selección asistida.
 - El armario, favoritos, outfits e historial se guardan en el navegador con `localStorage`.
 
@@ -45,8 +48,8 @@ Para el usuario normal no hay campo de API, Render, OpenAI ni configuración int
 
 1. Subir foto.
 2. Analizar prenda o detectar prendas visibles por zona.
-3. Revisar resultados.
-4. Guardar prendas.
+3. Revisar rápido: guardar, corregir o descartar.
+4. Guardar todo lo revisado.
 5. Crear outfit.
 
 Si existía una configuración antigua con `localhost`, SACLO la borra automáticamente y vuelve a usar `https://check-fit.onrender.com`.
@@ -54,6 +57,8 @@ Si existía una configuración antigua con `localhost`, SACLO la borra automáti
 Los errores visibles son humanos y no exponen claves, modelos, proveedor ni detalles técnicos.
 
 Consejo para mejores resultados: buena luz, prendas visibles y pocas piezas por foto. Para un armario completo, sube varias zonas: camisetas, pantalones, chaquetas, zapatillas y accesorios.
+
+No hace falta completar todo el armario desde el primer día. Con unas 8 prendas reales, SACLO ya puede empezar a crear looks útiles y mejorar de forma progresiva.
 
 ## Backend interno
 
@@ -138,6 +143,8 @@ Devuelve hasta 8 prendas claramente visibles por imagen y una nota de revisión.
 - Badge de confianza para resultados de análisis inteligente.
 - Aviso `Revisar recomendado` cuando la confianza baja de 70%.
 - Tarjetas independientes para prendas detectadas, editables antes de guardar.
+- Botones rápidos de corrección cuando hay dudas entre tipos parecidos.
+- Progreso de armario con recomendaciones suaves: calzado, capas y básicos.
 - Notas de revisión visibles en revisión asistida.
 - Sección `Hoy en SACLO` con racha, prendas sin usar, último outfit usado y acceso rápido al look del día.
 - Historial con favoritos, fecha, ocasión, clima, marcado de uso y botón `Usar de nuevo`.

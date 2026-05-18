@@ -162,7 +162,7 @@ export function renderDraftCard(item, callbacks) {
   const title = document.createElement("strong");
   title.textContent = item.name || "Prenda detectada";
   const source = document.createElement("small");
-  source.textContent = item.description || item.source || "Revisión asistida";
+  source.textContent = item.description || item.source || "Revisión rápida";
   copy.append(title, source);
   const reviewCopy = buildDraftReviewText(item);
   if (reviewCopy) {
@@ -181,6 +181,18 @@ export function renderDraftCard(item, callbacks) {
     createSelectField("Estilo", STYLES, item.style, value => callbacks.onChange(item.id, "style", value)),
     createSelectField("Temporada", SEASONS, item.season, value => callbacks.onChange(item.id, "season", value))
   );
+
+  const quickTypes = getQuickTypeOptions(item);
+  if (quickTypes.length > 1) {
+    const quickActions = document.createElement("div");
+    quickActions.className = "quick-type-actions";
+    quickTypes.forEach(type => {
+      quickActions.appendChild(
+        createCardButton(formatTypeLabel(type), () => callbacks.onQuickType(item.id, type), type === item.type ? "primary" : "ghost")
+      );
+    });
+    fields.appendChild(quickActions);
+  }
 
   const actions = document.createElement("div");
   actions.className = "draft-actions";
@@ -223,6 +235,27 @@ function buildDraftReviewText(item) {
   return parts.join(" ");
 }
 
+function getQuickTypeOptions(item) {
+  const alternatives = Array.isArray(item.typeAlternatives) ? item.typeAlternatives : [];
+  const grouped = inferQuickTypeGroup(item.type, alternatives);
+  return [...new Set([item.type, ...alternatives, ...grouped])]
+    .filter(type => TYPES.includes(type))
+    .slice(0, 4);
+}
+
+function inferQuickTypeGroup(type, alternatives) {
+  const candidates = [type, ...alternatives];
+  if (candidates.some(value => ["pantalón", "vaqueros"].includes(value))) return ["pantalón", "vaqueros"];
+  if (candidates.some(value => ["chaqueta", "cazadora", "camisa"].includes(value))) return ["chaqueta", "cazadora", "camisa"];
+  if (candidates.some(value => ["camiseta", "polo", "camisa"].includes(value))) return ["camiseta", "polo", "camisa"];
+  if (candidates.some(value => ["jersey", "sudadera"].includes(value))) return ["jersey", "sudadera"];
+  return [];
+}
+
+function formatTypeLabel(type) {
+  return type.charAt(0).toUpperCase() + type.slice(1);
+}
+
 function focusDraftEditor(card) {
   card.classList.add("editing");
   const input = card.querySelector("input");
@@ -232,12 +265,12 @@ function focusDraftEditor(card) {
 
 export function updateWardrobeSummary(node, visibleCount, totalCount) {
   if (!totalCount) {
-    node.textContent = "Tu armario está listo para su primera prenda.";
+    node.textContent = "Empieza con 8 prendas. No necesitas completar todo tu armario.";
     return;
   }
 
   node.textContent = visibleCount === totalCount
-    ? `${totalCount} prendas guardadas · listo para generar looks`
+    ? `${totalCount} prendas añadidas · armario en progreso`
     : `${visibleCount} de ${totalCount} prendas visibles con estos filtros`;
 }
 

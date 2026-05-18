@@ -548,6 +548,12 @@ select option {
   line-height: 1.5;
 }
 
+.compact-copy {
+  margin-top: 6px;
+  font-size: 13px;
+  max-width: 560px;
+}
+
 .app-grid {
   display: grid;
   grid-template-columns: minmax(320px, 0.92fr) minmax(0, 1.08fr);
@@ -687,7 +693,7 @@ select option {
   gap: 7px;
 }
 
-.zone-chips span {
+.zone-chip {
   min-height: 32px;
   display: inline-grid;
   place-items: center;
@@ -698,6 +704,11 @@ select option {
   color: var(--ink);
   font-size: 12px;
   font-weight: 900;
+}
+
+.zone-chip.active {
+  border-color: rgba(91, 140, 255, 0.56);
+  background: rgba(91, 140, 255, 0.18);
 }
 
 .photo-tips span {
@@ -1050,6 +1061,17 @@ select option {
 
 .draft-head .draft-review-note {
   color: #f0d7ab;
+}
+
+.quick-type-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+}
+
+.quick-type-actions .mini-button {
+  min-height: 31px;
+  padding: 7px 10px;
 }
 
 .draft-card.editing {

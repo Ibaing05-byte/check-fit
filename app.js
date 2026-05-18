@@ -141,7 +141,8 @@ const elements = {
   editStyle: document.getElementById("editStyle"),
   editSeason: document.getElementById("editSeason"),
   toast: document.getElementById("toast"),
-  navLinks: document.querySelectorAll(".bottom-nav a")
+  navLinks: document.querySelectorAll(".bottom-nav a"),
+  zoneButtons: document.querySelectorAll(".zone-chip")
 };
 
 let wardrobe = loadWardrobe();
@@ -152,6 +153,7 @@ let engagement = touchEngagement(loadEngagement());
 let selectedPhoto = "";
 let selectedPhotoFileName = "";
 let closetImage = "";
+let selectedClosetZone = "Camisetas";
 let cropArea = null;
 let dragState = null;
 let currentOutfit = null;
@@ -199,6 +201,7 @@ function bindEvents() {
   elements.singleModeButton.addEventListener("click", () => setCaptureMode("single"));
   elements.closetModeButton.addEventListener("click", () => setCaptureMode("closet"));
   elements.photo.addEventListener("change", previewSinglePhoto);
+  elements.zoneButtons.forEach(button => button.addEventListener("click", () => selectClosetZone(button.dataset.zone)));
   elements.analyzeSingleAI.addEventListener("click", analyzeSingleWithAI);
   elements.singleItemForm.addEventListener("submit", addSingleItem);
   elements.closetPhoto.addEventListener("change", previewClosetPhoto);
@@ -237,8 +240,24 @@ function setCaptureMode(mode) {
   elements.closetScanPanel.classList.toggle("active", !single);
 }
 
+function selectClosetZone(zone = "Camisetas") {
+  selectedClosetZone = zone;
+  elements.zoneButtons.forEach(button => {
+    const active = button.dataset.zone === zone;
+    button.classList.toggle("active", active);
+    button.setAttribute("aria-pressed", String(active));
+  });
+  showStatus(elements.aiClosetStatus, `${zone}: sube una foto con pocas prendas visibles y buena luz.`);
+}
+
 async function previewSinglePhoto(event) {
-  const file = event.target.files[0];
+  const files = [...event.target.files];
+  if (files.length > 1) {
+    await processMultipleSinglePhotos(files);
+    return;
+  }
+
+  const file = files[0];
   if (!file) return;
 
   selectedPhoto = await fileToDataUrl(file);
@@ -267,6 +286,63 @@ async function previewSinglePhoto(event) {
         ? `Color detectado por análisis visual: ${detectedColor}. Puedes corregirlo si quieres.`
         : "No hemos detectado un color claro. Puedes ajustarlo tú."
   );
+}
+
+async function processMultipleSinglePhotos(files) {
+  const selectedFiles = files.filter(file => file.type.startsWith("image/"));
+  if (!selectedFiles.length) return;
+
+  resetSingleForm();
+  showAnalysisSkeletons(Math.min(selectedFiles.length, 4));
+  setButtonLoading(elements.analyzeSingleAI, "Analizando prendas...");
+  startAnalysisProgress(elements.aiSingleStatus, [
+    "Analizando prendas sueltas...",
+    "Leyendo tipo y color...",
+    "Preparando revisión rápida..."
+  ]);
+
+  const createdDrafts = await Promise.all(selectedFiles.map(file => createDraftFromSinglePhoto(file)));
+  drafts = [
+    ...createdDrafts.filter(Boolean),
+    ...drafts
+  ];
+
+  saveDrafts(drafts);
+  renderAll();
+  clearAnalysisSkeletons();
+  stopAnalysisProgress();
+  setButtonReady(elements.analyzeSingleAI, "Analizar prenda", false);
+  showStatus(elements.aiSingleStatus, `${createdDrafts.filter(Boolean).length} prendas listas en revisión rápida.`);
+  showToast("Prendas sueltas listas para revisar.");
+  document.querySelector(".draft-section")?.scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
+async function createDraftFromSinglePhoto(file) {
+  const photo = await fileToDataUrl(file);
+
+  try {
+    const payload = await requestVisionAnalysis("/api/analyze-garment", photo, {
+      filename: file.name
+    });
+    if (payload.garment) {
+      return createDraftFromGarment(payload.garment, photo, "Prenda suelta");
+    }
+  } catch {
+    // Si falla el análisis, SACLO mantiene el alta rápida con datos editables.
+  }
+
+  const fileText = cleanFileName(file.name);
+  const color = inferColor(fileText) || await detectDominantColor(photo);
+  return createDraftItem({
+    name: fileText || "Prenda suelta",
+    color,
+    type: inferType(fileText),
+    style: inferStyle(fileText),
+    season: inferSeason(fileText),
+    photo,
+    source: "Prenda suelta",
+    description: "Revisa los datos antes de guardar"
+  });
 }
 
 async function analyzeSingleWithAI() {
@@ -336,13 +412,13 @@ async function previewClosetPhoto(event) {
   elements.closetWorkspace.hidden = false;
   elements.analyzeClosetAI.disabled = false;
   resetCropSelection();
-  elements.scanStatus.textContent = "Zona cargada. Puedes detectar prendas visibles o seleccionar una pieza concreta.";
+  elements.scanStatus.textContent = `${selectedClosetZone}: zona cargada. Puedes detectar prendas visibles o recortar una prenda concreta.`;
   showStatus(elements.aiClosetStatus, "Para mejores resultados: buena luz, prendas visibles y pocas piezas por foto.");
 }
 
 async function analyzeClosetWithAI() {
   if (!closetImage) {
-    showStatus(elements.aiClosetStatus, "Sube una zona del armario antes de detectar prendas visibles.");
+    showStatus(elements.aiClosetStatus, `Sube la zona de ${selectedClosetZone.toLowerCase()} antes de detectar prendas visibles.`);
     return;
   }
 
@@ -365,24 +441,12 @@ async function analyzeClosetWithAI() {
         elements.aiClosetStatus,
         payload.notes || "No hemos detectado prendas claras. Prueba con mejor luz o con menos prendas superpuestas."
       );
-      elements.scanStatus.textContent = "No hemos detectado prendas claras. Prueba con mejor luz o con menos prendas superpuestas.";
+      elements.scanStatus.textContent = "Puedes recortar una prenda concreta para analizarla mejor.";
       return;
     }
 
     drafts = [
-      ...detected.map(garment => createDraftItem({
-        name: garment.name,
-        color: garment.color,
-        type: garment.type,
-        style: garment.style,
-        season: garment.season,
-        photo: closetImage,
-        confidence: Number(garment.confidence || 0),
-        description: garment.description || "",
-        reviewReason: garment.reviewReason || "",
-        typeAlternatives: garment.typeAlternatives || [],
-        source: `Zona del armario · ${formatConfidence(garment.confidence)}`
-      })),
+      ...detected.map(garment => createDraftFromGarment(garment, closetImage, selectedClosetZone)),
       ...drafts
     ];
 
@@ -402,11 +466,28 @@ async function analyzeClosetWithAI() {
       elements.aiClosetStatus,
       getUserFacingAnalysisError(error, "closet")
     );
+    elements.scanStatus.textContent = "Puedes recortar una prenda concreta para analizarla mejor.";
   } finally {
     stopAnalysisProgress();
     clearAnalysisSkeletons();
     setButtonReady(elements.analyzeClosetAI, "Analizar esta zona", Boolean(closetImage));
   }
+}
+
+function createDraftFromGarment(garment, photo, sourceLabel) {
+  return createDraftItem({
+    name: garment.name,
+    color: garment.color,
+    type: garment.type,
+    style: garment.style,
+    season: garment.season,
+    photo,
+    confidence: Number(garment.confidence || 0),
+    description: garment.description || "",
+    reviewReason: garment.reviewReason || "",
+    typeAlternatives: garment.typeAlternatives || [],
+    source: `${sourceLabel} · ${formatConfidence(garment.confidence)}`
+  });
 }
 
 function startCropDrag(event) {
@@ -568,7 +649,7 @@ function confirmDraft(id) {
   saveWardrobe(wardrobe);
   saveDrafts(drafts);
   renderAll();
-  showToast("Prenda guardada desde revisión inteligente.");
+  showToast("Prenda guardada desde revisión rápida.");
 }
 
 function confirmAllDrafts() {
@@ -588,11 +669,18 @@ function updateDraft(id, key, value) {
   saveDrafts(drafts);
 }
 
+function updateDraftQuickType(id, type) {
+  drafts = drafts.map(item => item.id === id ? { ...item, type } : item);
+  saveDrafts(drafts);
+  renderDrafts();
+  showToast(`Tipo actualizado a ${type}.`);
+}
+
 function removeDraft(id) {
   drafts = drafts.filter(item => item.id !== id);
   saveDrafts(drafts);
   renderAll();
-  showToast("Recorte descartado.");
+  showToast("Prenda descartada.");
 }
 
 function clearDrafts() {
@@ -871,6 +959,7 @@ function renderDrafts() {
   drafts.forEach(item => {
     elements.pendingGallery.appendChild(renderDraftCard(item, {
       onChange: updateDraft,
+      onQuickType: updateDraftQuickType,
       onConfirm: confirmDraft,
       onRemove: removeDraft
     }));
@@ -1265,7 +1354,16 @@ function getDailyWardrobeHint(profile = getUserStyleProfile()) {
 
 function renderWardrobeInsight() {
   if (!wardrobe.length) {
-    elements.wardrobeInsight.textContent = "Empieza con 5 prendas reales: base, pantalón, calzado, capa y una pieza con personalidad.";
+    elements.wardrobeInsight.textContent = "Empieza con 8 prendas. SACLO ya podrá crear tus primeros looks.";
+    return;
+  }
+  if (wardrobe.length < 8) {
+    elements.wardrobeInsight.textContent = `${wardrobe.length} prendas añadidas. Sube ${8 - wardrobe.length} más para desbloquear looks más completos.`;
+    return;
+  }
+  const missing = getWardrobeMissingPiece();
+  if (missing) {
+    elements.wardrobeInsight.textContent = missing;
     return;
   }
   const forgotten = getForgottenItems(1)[0];
@@ -1274,6 +1372,19 @@ function renderWardrobeInsight() {
     return;
   }
   elements.wardrobeInsight.textContent = getDailyWardrobeHint();
+}
+
+function getWardrobeMissingPiece() {
+  if (!wardrobe.some(item => ["zapatillas", "zapatos", "botas", "sandalias"].includes(item.type))) {
+    return `${wardrobe.length} prendas añadidas. Te falta calzado para mejores outfits. Añade tus zapatillas favoritas.`;
+  }
+  if (!wardrobe.some(item => ["chaqueta", "cazadora", "abrigo", "sudadera", "jersey"].includes(item.type))) {
+    return `${wardrobe.length} prendas añadidas. Completa tus chaquetas o una capa para looks con más forma.`;
+  }
+  if (!wardrobe.some(item => ["camiseta", "camisa", "polo", "top"].includes(item.type))) {
+    return `${wardrobe.length} prendas añadidas. Sube 3 prendas básicas para mejorar los looks.`;
+  }
+  return "";
 }
 
 function renderAdvice(node, advice = []) {
