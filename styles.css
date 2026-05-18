@@ -486,40 +486,6 @@ select option {
   line-height: 1.5;
 }
 
-.api-config {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(280px, 0.72fr);
-  gap: 16px;
-  align-items: end;
-  margin-bottom: 18px;
-  background:
-    linear-gradient(135deg, rgba(91, 140, 255, 0.11), rgba(216, 195, 165, 0.06)),
-    rgba(21, 23, 34, 0.9);
-}
-
-.api-config h2 {
-  margin: 0;
-  font-size: 22px;
-}
-
-.api-config p:not(.eyebrow) {
-  max-width: 680px;
-  margin: 8px 0 0;
-  color: var(--muted);
-  line-height: 1.5;
-}
-
-.api-config-controls {
-  display: grid;
-  gap: 10px;
-}
-
-.api-config-actions {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 8px;
-}
-
 .app-grid {
   display: grid;
   grid-template-columns: minmax(320px, 0.92fr) minmax(0, 1.08fr);
@@ -1006,6 +972,35 @@ select option {
   box-shadow: 0 24px 72px rgba(91, 140, 255, 0.12);
 }
 
+.skeleton-card {
+  pointer-events: none;
+}
+
+.skeleton-media {
+  width: 100%;
+  aspect-ratio: 3 / 4;
+  background: linear-gradient(90deg, rgba(255, 255, 255, 0.05), rgba(91, 140, 255, 0.16), rgba(255, 255, 255, 0.05));
+  background-size: 220% 100%;
+  animation: softScan 1.1s ease-in-out infinite;
+}
+
+.skeleton-line {
+  width: 72%;
+  height: 13px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, rgba(255, 255, 255, 0.05), rgba(216, 195, 165, 0.16), rgba(255, 255, 255, 0.05));
+  background-size: 220% 100%;
+  animation: softScan 1.1s ease-in-out infinite;
+}
+
+.skeleton-line.wide {
+  width: 92%;
+}
+
+.skeleton-line.short {
+  width: 48%;
+}
+
 .garment-copy {
   min-width: 0;
 }
@@ -1249,8 +1244,7 @@ select option {
 @media (max-width: 980px) {
   .hero-grid,
   .app-grid,
-  .home-dashboard,
-  .api-config {
+  .home-dashboard {
     grid-template-columns: 1fr;
   }
 
@@ -1310,7 +1304,6 @@ select option {
   .crop-guide,
   .photo-tips,
   .ai-panel,
-  .api-config-actions,
   .form-grid,
   .outfit-controls,
   .wardrobe-tools,

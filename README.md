@@ -128,12 +128,23 @@ Devuelve hasta 8 prendas claramente visibles y una nota de revisión. No debe in
 ## Mejoras recientes de UX
 
 - Loading premium con `Analizando prenda...` y `Detectando prendas...`.
+- Progreso visual en tres pasos: detección, color y preparación de resultados.
+- Compresión automática de imágenes antes del análisis: lado largo aproximado de 1200px y JPEG optimizado.
+- Caché de análisis en sesión para no repetir llamadas con la misma imagen.
 - Badge de confianza para resultados de análisis inteligente.
 - Aviso `Revisar recomendado` cuando la confianza baja de 70%.
 - Tarjetas independientes para prendas detectadas, editables antes de guardar.
 - Notas de la IA visibles en revisión asistida.
 - Sección `Hoy en SACLO` con racha, prendas sin usar, último outfit usado y acceso rápido al look del día.
 - Historial con favoritos, fecha, ocasión, clima, marcado de uso y botón `Usar de nuevo`.
+- Outfit engine más estricto con paletas, ocasión, clima, favoritos, rotación semanal y prendas menos usadas.
+
+## Pipeline de análisis
+
+- Frontend: reduce la imagen en `canvas`, evita enviar fotos gigantes y reutiliza resultados repetidos durante la sesión.
+- Backend: usa respuestas estructuradas, timeout, caché temporal, logs de duración y validación contra duplicados.
+- Armario: prioriza prendas claramente visibles. Es mejor detectar pocas prendas fiables que muchas dudosas.
+- Color: se pide color principal y color secundario opcional para reducir confusiones como negro/gris, beige/blanco o azul/negro.
 
 ## Arquitectura
 

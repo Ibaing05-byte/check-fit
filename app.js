@@ -42,8 +42,10 @@ const LEGACY_LOCAL_API_URLS = new Set([
   "http://127.0.0.1:3000",
   "http://127.0.0.1:3001"
 ]);
-const MAX_ANALYSIS_SIDE = 1400;
+const MAX_ANALYSIS_SIDE = 1200;
+const ANALYSIS_JPEG_QUALITY = 0.76;
 const MAX_CLIENT_IMAGE_MB = 5.5;
+const VISION_CACHE_LIMIT = 12;
 
 const elements = {
   heroItemCount: document.getElementById("heroItemCount"),
@@ -146,6 +148,8 @@ let currentOutfit = null;
 let cropPreviewPhoto = "";
 let cropPreviewColor = "";
 let toastTimeout = 0;
+let analysisProgressTimer = 0;
+const visionAnalysisCache = new Map();
 
 init();
 
@@ -256,7 +260,12 @@ async function analyzeSingleWithAI() {
 
   setButtonLoading(elements.analyzeSingleAI, "Analizando prenda...");
   renderConfidenceBadge(null);
-  showStatus(elements.aiSingleStatus, "Analizando prenda... SACLO está leyendo tipo, color, estilo y temporada.");
+  startAnalysisProgress(elements.aiSingleStatus, [
+    "Analizando prenda...",
+    "Leyendo tipo y forma...",
+    "Analizando colores...",
+    "Preparando resultados..."
+  ]);
 
   try {
     const payload = await requestVisionAnalysis("/api/analyze-garment", selectedPhoto, {
@@ -270,13 +279,14 @@ async function analyzeSingleWithAI() {
       elements.aiSingleStatus,
       `${getConfidenceLabel(garment.confidence)}. ${garment.description} Puedes editar cualquier campo antes de guardar.`
     );
-    showToast("Análisis visual aplicado. Revisa y guarda cuando encaje.");
+    showToast("Análisis aplicado. Revisa y guarda cuando encaje.");
   } catch (error) {
     showStatus(
       elements.aiSingleStatus,
       getUserFacingAnalysisError(error)
     );
   } finally {
+    stopAnalysisProgress();
     setButtonReady(elements.analyzeSingleAI, "Analizar prenda", Boolean(selectedPhoto));
   }
 }
@@ -320,7 +330,13 @@ async function analyzeClosetWithAI() {
   }
 
   setButtonLoading(elements.analyzeClosetAI, "Detectando prendas...");
-  showStatus(elements.aiClosetStatus, "Detectando prendas visibles... SACLO enviará cada resultado a revisión asistida.");
+  showAnalysisSkeletons(3);
+  startAnalysisProgress(elements.aiClosetStatus, [
+    "Detectando prendas...",
+    "Separando piezas visibles...",
+    "Analizando colores...",
+    "Preparando resultados..."
+  ]);
 
   try {
     const payload = await requestVisionAnalysis("/api/analyze-closet", closetImage);
@@ -364,6 +380,8 @@ async function analyzeClosetWithAI() {
       getUserFacingAnalysisError(error, "closet")
     );
   } finally {
+    stopAnalysisProgress();
+    clearAnalysisSkeletons();
     setButtonReady(elements.analyzeClosetAI, "Detectar prendas", Boolean(closetImage));
   }
 }
@@ -637,7 +655,8 @@ function generateOutfit(options = {}) {
 
   currentOutfit = recommendOutfit(wardrobe, context, {
     excludeIds,
-    recentOutfits: getRecentWeeklyOutfits()
+    recentOutfits: getRecentWeeklyOutfits(),
+    favoritePieceIds: getFavoritePieceIds()
   });
   currentOutfit.context = context;
   currentOutfit.title = createOutfitTitle(context);
@@ -844,7 +863,8 @@ function renderHome() {
   const dailyOutfit = wardrobe.length
     ? recommendOutfit(wardrobe, dailyContext, {
       excludeIds: readLastOutfitIds(),
-      recentOutfits: getRecentWeeklyOutfits()
+      recentOutfits: getRecentWeeklyOutfits(),
+      favoritePieceIds: getFavoritePieceIds()
     })
     : { pieces: [] };
 
@@ -914,6 +934,12 @@ function formatRelativeDay(timestamp) {
 function getRecentWeeklyOutfits() {
   const weekAgo = Date.now() - 1000 * 60 * 60 * 24 * 7;
   return outfits.filter(outfit => (outfit.wornAt || outfit.createdAt) >= weekAgo);
+}
+
+function getFavoritePieceIds() {
+  return [...new Set(outfits
+    .filter(outfit => outfit.favorite)
+    .flatMap(outfit => outfit.pieceIds || []))];
 }
 
 function touchEngagement(current) {
@@ -1011,6 +1037,12 @@ function showToast(message) {
 async function requestVisionAnalysis(endpoint, imageDataUrl, options = {}) {
   const image = await prepareImageForAnalysis(imageDataUrl);
   const apiBaseUrl = getApiBaseUrl();
+  const cacheKey = `${endpoint}:${options.filename || ""}:${hashString(image)}`;
+  const cached = readVisionCache(cacheKey);
+
+  if (cached) {
+    return cached;
+  }
 
   let response;
   try {
@@ -1034,6 +1066,7 @@ async function requestVisionAnalysis(endpoint, imageDataUrl, options = {}) {
     throw new Error(getVisionErrorMessage(payload, response.status));
   }
 
+  writeVisionCache(cacheKey, payload);
   return payload;
 }
 
@@ -1051,17 +1084,29 @@ async function prepareImageForAnalysis(imageDataUrl) {
   const image = await loadImage(imageDataUrl);
   const width = image.naturalWidth || image.width;
   const height = image.naturalHeight || image.height;
-  const ratio = Math.min(1, MAX_ANALYSIS_SIDE / Math.max(width, height));
-  const canvas = document.createElement("canvas");
-  const context = canvas.getContext("2d");
 
-  canvas.width = Math.max(1, Math.round(width * ratio));
-  canvas.height = Math.max(1, Math.round(height * ratio));
-  context.drawImage(image, 0, 0, canvas.width, canvas.height);
+  let side = MAX_ANALYSIS_SIDE;
+  let quality = ANALYSIS_JPEG_QUALITY;
+  let optimized = "";
 
-  const optimized = canvas.toDataURL("image/jpeg", 0.82);
-  if (estimateDataUrlSizeMb(optimized) > MAX_CLIENT_IMAGE_MB) {
-    throw new Error("La imagen sigue siendo demasiado grande para analizar. Prueba con una foto más ligera o recorta la zona principal.");
+  for (let attempt = 0; attempt < 4; attempt += 1) {
+    const ratio = Math.min(1, side / Math.max(width, height));
+    const canvas = document.createElement("canvas");
+    const context = canvas.getContext("2d");
+
+    canvas.width = Math.max(1, Math.round(width * ratio));
+    canvas.height = Math.max(1, Math.round(height * ratio));
+    context.drawImage(image, 0, 0, canvas.width, canvas.height);
+
+    optimized = canvas.toDataURL("image/jpeg", quality);
+    if (estimateDataUrlSizeMb(optimized) <= MAX_CLIENT_IMAGE_MB) break;
+
+    side = Math.max(760, Math.round(side * 0.84));
+    quality = Math.max(0.66, quality - 0.04);
+  }
+
+  if (!optimized || estimateDataUrlSizeMb(optimized) > MAX_CLIENT_IMAGE_MB) {
+    throw new Error("La imagen sigue siendo demasiado grande para analizar. Prueba con una foto más ligera.");
   }
 
   return optimized;
@@ -1150,6 +1195,72 @@ function setButtonReady(button, text, enabled = true) {
   button.textContent = text || button.dataset.readyText || button.textContent;
   button.disabled = !enabled;
   button.classList.remove("loading");
+}
+
+function startAnalysisProgress(node, steps) {
+  stopAnalysisProgress();
+  let index = 0;
+  showStatus(node, steps[index]);
+  analysisProgressTimer = window.setInterval(() => {
+    index = Math.min(index + 1, steps.length - 1);
+    showStatus(node, steps[index]);
+    if (index === steps.length - 1) stopAnalysisProgress();
+  }, 850);
+}
+
+function stopAnalysisProgress() {
+  if (!analysisProgressTimer) return;
+  window.clearInterval(analysisProgressTimer);
+  analysisProgressTimer = 0;
+}
+
+function showAnalysisSkeletons(count) {
+  clearAnalysisSkeletons();
+  const fragment = document.createDocumentFragment();
+  Array.from({ length: count }).forEach(() => {
+    const card = document.createElement("article");
+    card.className = "draft-card skeleton-card";
+    card.setAttribute("aria-hidden", "true");
+    card.innerHTML = `
+      <div class="skeleton-media"></div>
+      <div class="draft-fields">
+        <div class="skeleton-line wide"></div>
+        <div class="skeleton-line"></div>
+        <div class="skeleton-line short"></div>
+      </div>
+    `;
+    fragment.appendChild(card);
+  });
+  elements.pendingGallery.prepend(fragment);
+}
+
+function clearAnalysisSkeletons() {
+  elements.pendingGallery.querySelectorAll(".skeleton-card").forEach(card => card.remove());
+}
+
+function readVisionCache(key) {
+  const cached = visionAnalysisCache.get(key);
+  if (!cached) return null;
+  visionAnalysisCache.delete(key);
+  visionAnalysisCache.set(key, cached);
+  return JSON.parse(JSON.stringify(cached));
+}
+
+function writeVisionCache(key, payload) {
+  visionAnalysisCache.set(key, JSON.parse(JSON.stringify(payload)));
+  while (visionAnalysisCache.size > VISION_CACHE_LIMIT) {
+    visionAnalysisCache.delete(visionAnalysisCache.keys().next().value);
+  }
+}
+
+function hashString(value) {
+  let hash = 2166136261;
+  const text = String(value);
+  for (let index = 0; index < text.length; index += 1) {
+    hash ^= text.charCodeAt(index);
+    hash = Math.imul(hash, 16777619);
+  }
+  return (hash >>> 0).toString(36);
 }
 
 function clampPoint(clientX, clientY, rect) {

@@ -18,6 +18,9 @@ PORT=3000
 FRONTEND_ORIGIN=https://saclo.net
 OPENAI_VISION_MODEL=gpt-4.1-mini
 MAX_IMAGE_MB=6
+OPENAI_TIMEOUT_MS=12000
+ANALYSIS_CACHE_TTL_MS=600000
+ANALYSIS_CACHE_LIMIT=80
 ```
 
 Para desarrollo local con el frontend en `http://localhost:8000`, puedes usar:
@@ -92,8 +95,12 @@ Response:
     "name": "sudadera negra",
     "type": "sudadera",
     "color": "negro",
+    "secondaryColor": "",
     "style": "streetwear",
     "season": "invierno",
+    "occasion": "casual diario",
+    "imageContext": "prenda individual",
+    "reviewReason": "",
     "description": "Sudadera negra de estilo casual/streetwear",
     "confidence": 0.87
   }
@@ -122,8 +129,12 @@ Response:
       "name": "camiseta blanca",
       "type": "camiseta",
       "color": "blanco",
+      "secondaryColor": "",
       "style": "casual",
       "season": "verano",
+      "occasion": "casual diario",
+      "imageContext": "prendas superpuestas",
+      "reviewReason": "",
       "description": "Camiseta básica blanca",
       "confidence": 0.78
     }
@@ -135,10 +146,14 @@ Response:
 ## Reglas del análisis
 
 - No inventar prendas.
-- Si la imagen es confusa, devolver pocas prendas y recomendar revisión manual.
+- Si la imagen es confusa, devolver pocas prendas y recomendar revisión antes de guardar.
+- Separar solo prendas independientes claramente visibles.
+- Evitar duplicados por tipo, color y nombre.
 - Priorizar prendas claramente visibles.
+- Precisión por encima de cantidad: mejor 3 prendas bien que 8 dudosas.
 - Mantener confianza entre `0` y `1`.
 - Usar solo tipos, colores, estilos y temporadas permitidos por el frontend.
+- Devolver `secondaryColor`, `occasion`, `imageContext` y `reviewReason` para mejorar la revisión.
 
 ## Errores comunes
 
@@ -152,6 +167,8 @@ Response:
 
 - El frontend reduce la imagen antes de enviarla.
 - El backend limita el tamaño de imagen.
+- El backend usa timeout razonable para evitar esperas largas.
+- El backend cachea análisis repetidos durante unos minutos para evitar llamadas duplicadas.
 - `analyze-closet` devuelve máximo 8 prendas.
 - No hay análisis automático en bucle; el usuario pulsa el botón cuando quiere analizar.
 

@@ -2,7 +2,7 @@ import { CLASHING_COLORS, COMPATIBLE_COLORS, GROUP_LABELS, STYLE_TARGETS, TYPE_G
 
 export function recommendOutfit(wardrobe, context, options = {}) {
   const requiredGroups = getRequiredGroups(wardrobe, context);
-  const attempts = Array.from({ length: 14 }, () => buildLookCandidate(wardrobe, context, requiredGroups, options));
+  const attempts = Array.from({ length: 22 }, () => buildLookCandidate(wardrobe, context, requiredGroups, options));
   const best = attempts
     .filter(candidate => candidate.pieces.length)
     .sort((a, b) => b.score - a.score)[0] || { pieces: [], score: 0 };
@@ -102,7 +102,7 @@ function buildLookCandidate(wardrobe, context, requiredGroups, options) {
   const excludeIds = options.excludeIds || [];
 
   requiredGroups.forEach(group => {
-    const item = pickBestItem(group, wardrobe, context, selected, excludeIds);
+    const item = pickBestItem(group, wardrobe, context, selected, excludeIds, options);
     if (item) selected.push(item);
   });
 
@@ -121,15 +121,15 @@ function getRequiredGroups(wardrobe, context) {
   return groups;
 }
 
-function pickBestItem(group, wardrobe, context, selected, excludeIds) {
+function pickBestItem(group, wardrobe, context, selected, excludeIds, options) {
   return wardrobe
     .filter(item => TYPE_GROUPS[group].includes(item.type))
     .filter(item => !selected.some(piece => piece.id === item.id))
-    .map(item => ({ item, score: scoreItem(item, context, selected, excludeIds) }))
+    .map(item => ({ item, score: scoreItem(item, context, selected, excludeIds, options) }))
     .sort((a, b) => b.score - a.score || (a.item.usageCount || 0) - (b.item.usageCount || 0) || (a.item.lastUsedAt || 0) - (b.item.lastUsedAt || 0) || Math.random() - 0.5)[0]?.item;
 }
 
-function scoreItem(item, context, selected, excludeIds) {
+function scoreItem(item, context, selected, excludeIds, options) {
   let score = 0;
   const styleTargets = getStyleTargets(context);
   const seasonTarget = getSeasonTarget(context.temperature, context.climate);
@@ -149,11 +149,14 @@ function scoreItem(item, context, selected, excludeIds) {
   score += colorHarmonyScore(item.color, selected.map(piece => piece.color));
 
   if (excludeIds.includes(item.id)) score -= 12;
+  if (options.favoritePieceIds?.includes(item.id)) score += 7;
   if (selected.some(piece => areClashingColors(item.color, piece.color))) score -= 18;
+  if (selected.some(piece => isHardColorConflict(item.color, piece.color))) score -= 26;
   score += styleHarmonyScore(item.style, selected.map(piece => piece.style), context);
   if (isBasicItem(item)) score += selected.length ? 8 : 12;
   score -= (item.usageCount || 0) * 5;
   if (item.lastUsedAt && Date.now() - item.lastUsedAt < 1000 * 60 * 60 * 24 * 3) score -= 8;
+  if (item.lastUsedAt && Date.now() - item.lastUsedAt < 1000 * 60 * 60 * 24) score -= 8;
 
   return score;
 }
@@ -170,6 +173,7 @@ function scoreLook(pieces, requiredGroups, context, options) {
   score += scorePalette(pieces.map(piece => piece.color));
   score += scoreStyleMix(pieces.map(piece => piece.style), context);
   score += pieces.filter(isBasicItem).length * 5;
+  score += scoreOccasionFit(pieces, context);
 
   const recentOutfits = options.recentOutfits || [];
   const key = combinationKey(pieces);
@@ -177,6 +181,8 @@ function scoreLook(pieces, requiredGroups, context, options) {
 
   if (context.temperature <= 12 && !pieces.some(piece => ["abrigo", "chaqueta", "cazadora", "sudadera", "jersey"].includes(piece.type))) score -= 22;
   if (context.temperature >= 26 && pieces.some(piece => ["abrigo", "bufanda"].includes(piece.type))) score -= 24;
+  if (context.temperature >= 25 && pieces.some(piece => ["botas", "jersey", "sudadera"].includes(piece.type))) score -= 12;
+  if (pieces.some(piece => piece.type === "vestido") && pieces.some(piece => TYPE_GROUPS.top.includes(piece.type))) score -= 18;
   if (context.occasion === "evento formal" && pieces.some(piece => ["chándal", "leggings", "sandalias"].includes(piece.type))) score -= 28;
   if (context.occasion === "deporte" && pieces.some(piece => ["zapatos", "abrigo", "vestido"].includes(piece.type))) score -= 22;
 
@@ -196,6 +202,7 @@ function getSeasonTarget(temperature, climate) {
 
 function colorHarmonyScore(color, selectedColors) {
   if (!color) return 0;
+  if (["otro", "multicolor"].includes(normalizeColor(color))) return selectedColors.length ? -2 : 2;
   if (!selectedColors.length) return isNeutral(color) ? 10 : 6;
 
   const normalized = normalizeColor(color);
@@ -207,6 +214,7 @@ function colorHarmonyScore(color, selectedColors) {
   if (hasNeutral) return 12;
   if (selected.some(other => areCompatibleColors(normalized, other))) return 10;
   if (selected.some(other => areClashingColors(normalized, other))) return -14;
+  if (selected.some(other => isHardColorConflict(normalized, other))) return -22;
   return -4;
 }
 
@@ -229,7 +237,8 @@ function buildExplanation(pieces, requiredGroups, context) {
   const shoe = pieces.find(piece => TYPE_GROUPS.shoes.includes(piece.type));
   const shoeText = shoe ? ` y ${shoe.type} fáciles de combinar` : "";
 
-  return `Te propongo un look ${mood}: ${palette}, ${layerText}${shoeText}. Encaja con ${context.climate} y ${context.temperature}º, evita repetir combinaciones recientes y da prioridad a prendas menos usadas.${missingText}`;
+  const occasionText = context.occasion ? ` para ${context.occasion}` : "";
+  return `Look ${mood}${occasionText}: ${palette}, ${layerText}${shoeText}. Encaja con ${context.climate} y ${context.temperature}º, mantiene una lectura visual coherente y rota prendas para no repetir siempre lo mismo.${missingText}`;
 }
 
 function getItemGroups(item) {
@@ -252,6 +261,19 @@ function areClashingColors(a, b) {
   const right = normalizeColor(b);
   if (!left || !right) return false;
   return CLASHING_COLORS.some(pair => pair.includes(left) && pair.includes(right));
+}
+
+function isHardColorConflict(a, b) {
+  const left = normalizeColor(a);
+  const right = normalizeColor(b);
+  if (!left || !right || isNeutral(left) || isNeutral(right)) return false;
+  return [
+    ["rojo", "verde"],
+    ["rosa", "naranja"],
+    ["amarillo", "morado"],
+    ["verde", "morado"],
+    ["naranja", "morado"]
+  ].some(pair => pair.includes(left) && pair.includes(right));
 }
 
 function isNeutral(color) {
@@ -287,6 +309,34 @@ function scoreStyleMix(styles, context) {
   return score;
 }
 
+function scoreOccasionFit(pieces, context) {
+  let score = 0;
+  const types = pieces.map(piece => piece.type);
+  const styles = pieces.map(piece => piece.style);
+
+  if (context.occasion === "trabajo") {
+    if (styles.some(style => ["elegante", "minimalista", "formal"].includes(style))) score += 12;
+    if (types.some(type => ["shorts", "chándal", "leggings"].includes(type))) score -= 18;
+  }
+  if (context.occasion === "cita") {
+    if (styles.some(style => ["elegante", "minimalista"].includes(style))) score += 10;
+    if (types.includes("chándal")) score -= 16;
+  }
+  if (context.occasion === "fiesta") {
+    if (styles.some(style => ["elegante", "streetwear"].includes(style))) score += 10;
+    if (types.includes("leggings")) score -= 10;
+  }
+  if (context.occasion === "viaje" || context.occasion === "paseo") {
+    if (types.some(type => ["zapatillas", "sudadera", "chaqueta"].includes(type))) score += 9;
+  }
+  if (context.occasion === "deporte") {
+    if (styles.every(style => style === "deportivo" || style === "casual")) score += 16;
+    if (!types.some(type => ["zapatillas"].includes(type))) score -= 14;
+  }
+
+  return score;
+}
+
 function scorePalette(colors) {
   const normalized = colors.map(normalizeColor).filter(Boolean);
   if (!normalized.length) return 0;
@@ -311,6 +361,7 @@ function countColorClashes(colors) {
 
 function describePalette(colors) {
   const normalized = colors.map(normalizeColor).filter(Boolean);
+  if (normalized.includes("multicolor")) return "base sencilla para equilibrar una prenda protagonista";
   const neutrals = normalized.filter(isNeutral);
   const accents = normalized.filter(color => !isNeutral(color));
   if (neutrals.length && accents.length) return `base neutra con acento ${formatList([...new Set(accents)].slice(0, 2))}`;

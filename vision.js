@@ -28,7 +28,7 @@ export async function detectDominantColor(imageDataUrl) {
   context.drawImage(image, 0, 0, size, size);
 
   const pixels = context.getImageData(0, 0, size, size).data;
-  const totals = { r: 0, g: 0, b: 0, count: 0 };
+  const buckets = new Map();
 
   for (let index = 0; index < pixels.length; index += 4) {
     const alpha = pixels[index + 3];
@@ -37,22 +37,30 @@ export async function detectDominantColor(imageDataUrl) {
     const r = pixels[index];
     const g = pixels[index + 1];
     const b = pixels[index + 2];
-    const brightness = (r + g + b) / 3;
+    const { s, l } = rgbToHsl(r, g, b);
 
-    if (brightness > 246) continue;
+    if (l > 0.98 && s < 0.08) continue;
 
-    totals.r += r;
-    totals.g += g;
-    totals.b += b;
-    totals.count += 1;
+    const name = getDominantColorName({ r, g, b });
+    const current = buckets.get(name) || { r: 0, g: 0, b: 0, weight: 0 };
+    const weight = getPixelWeight(name, s, l);
+    current.r += r * weight;
+    current.g += g * weight;
+    current.b += b * weight;
+    current.weight += weight;
+    buckets.set(name, current);
   }
 
-  if (!totals.count) return "";
+  const dominant = [...buckets.entries()]
+    .filter(([, value]) => value.weight > 0)
+    .sort((a, b) => b[1].weight - a[1].weight)[0];
+
+  if (!dominant) return "";
 
   return getDominantColorName({
-    r: Math.round(totals.r / totals.count),
-    g: Math.round(totals.g / totals.count),
-    b: Math.round(totals.b / totals.count)
+    r: Math.round(dominant[1].r / dominant[1].weight),
+    g: Math.round(dominant[1].g / dominant[1].weight),
+    b: Math.round(dominant[1].b / dominant[1].weight)
   });
 }
 
@@ -147,6 +155,14 @@ function rgbToHsl(r, g, b) {
   }
 
   return { h, s, l };
+}
+
+function getPixelWeight(name, saturation, lightness) {
+  if (name === "blanco" && lightness > 0.94) return 0.62;
+  if (name === "negro" && lightness < 0.08) return 0.72;
+  if (name === "gris" && saturation < 0.08) return 0.82;
+  if (["beige", "marrón"].includes(name)) return 1.12;
+  return saturation > 0.22 ? 1.18 : 1;
 }
 
 function clamp(value, min, max) {
