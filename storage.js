@@ -138,7 +138,11 @@ export function normalizeDraftItem(data) {
     createdAt: normalizeTimestamp(data.createdAt, data.id),
     source: data.source || "Recorte manual",
     confidence: Number(data.confidence || 0),
-    description: String(data.description || "").trim()
+    description: String(data.description || "").trim(),
+    reviewReason: String(data.reviewReason || "").trim(),
+    typeAlternatives: Array.isArray(data.typeAlternatives)
+      ? data.typeAlternatives.filter(type => TYPES.includes(type)).slice(0, 3)
+      : []
   };
 }
 

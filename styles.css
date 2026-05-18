@@ -1048,6 +1048,10 @@ select option {
   line-height: 1.35;
 }
 
+.draft-head .draft-review-note {
+  color: #f0d7ab;
+}
+
 .draft-card.editing {
   border-color: rgba(91, 140, 255, 0.42);
   box-shadow: 0 24px 72px rgba(91, 140, 255, 0.12);

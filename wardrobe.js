@@ -164,6 +164,13 @@ export function renderDraftCard(item, callbacks) {
   const source = document.createElement("small");
   source.textContent = item.description || item.source || "Revisión asistida";
   copy.append(title, source);
+  const reviewCopy = buildDraftReviewText(item);
+  if (reviewCopy) {
+    const review = document.createElement("small");
+    review.className = "draft-review-note";
+    review.textContent = reviewCopy;
+    copy.appendChild(review);
+  }
   head.append(copy, createConfidenceBadge(item));
 
   fields.append(
@@ -190,15 +197,30 @@ export function renderDraftCard(item, callbacks) {
 
 function createConfidenceBadge(item) {
   const confidence = Number(item.confidence || 0);
+  const needsReview = confidence < 0.8 || Boolean(item.reviewReason);
   const badge = document.createElement("span");
-  badge.className = `confidence-pill ${confidence && confidence < 0.7 ? "review" : "strong"}`;
+  badge.className = `confidence-pill ${confidence && needsReview ? "review" : "strong"}`;
   badge.textContent = confidence
-    ? confidence < 0.7
+    ? needsReview
       ? `${Math.round(confidence * 100)}% · Revisar`
       : `${Math.round(confidence * 100)}%`
     : "Manual";
-  badge.title = confidence && confidence < 0.7 ? "Revisar recomendado" : "Confianza del análisis";
+  badge.title = confidence && needsReview ? "Revisión recomendada" : "Confianza del análisis";
   return badge;
+}
+
+function buildDraftReviewText(item) {
+  const parts = [];
+  if (Number(item.confidence || 0) < 0.8 || item.reviewReason) {
+    parts.push("Revisión recomendada: revisa tipo y temporada antes de guardar.");
+  }
+  if (item.reviewReason) {
+    parts.push(item.reviewReason);
+  }
+  if (Array.isArray(item.typeAlternatives) && item.typeAlternatives.length) {
+    parts.push(`También podría ser: ${item.typeAlternatives.join(" / ")}.`);
+  }
+  return parts.join(" ");
 }
 
 function focusDraftEditor(card) {

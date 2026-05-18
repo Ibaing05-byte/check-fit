@@ -160,6 +160,21 @@ Response:
 - Mantener confianza entre `0` y `1`.
 - Usar solo tipos, colores, estilos y temporadas permitidos por el frontend.
 - Devolver `secondaryColor`, `occasion`, `imageContext` y `reviewReason` para mejorar la revisión.
+- Devolver `typeAlternatives` cuando haya duda razonable entre tipos parecidos.
+- No inferir temporada por color, fondo, estética o iluminación.
+- Si no se ve denim con claridad, clasificar como `pantalón` y añadir `reviewReason` antes que inventar `vaqueros`.
+- Si hay duda entre polo/camiseta/camisa, jersey/sudadera o chaqueta/camisa/cazadora, elegir el tipo más probable y pedir revisión.
+
+## Checklist de precisión visual
+
+- Polo negro -> `type: polo`, `season: verano` o `todo el año`.
+- Jersey negro de punto -> `type: jersey`, `season: entretiempo` o `invierno`.
+- Chaqueta beige colgada -> `type: chaqueta` o `cazadora`, `season: entretiempo`.
+- Vaqueros negros doblados -> `type: vaqueros` si se ve denim; si no, `pantalón` con `reviewReason`.
+- Camiseta básica -> `type: camiseta`.
+- Sudadera sin capucha -> `type: sudadera`.
+- Camisa blanca -> `type: camisa`.
+- Abrigo largo -> `type: abrigo`.
 
 ## Errores comunes
 

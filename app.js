@@ -291,10 +291,10 @@ async function analyzeSingleWithAI() {
     const garment = payload.garment;
     if (!garment) throw new Error("No hemos podido analizar esta imagen. Prueba con otra foto más clara.");
     applyGarmentSuggestion(garment);
-    renderConfidenceBadge(garment.confidence);
+    renderConfidenceBadge(garment.confidence, garment);
     showStatus(
       elements.aiSingleStatus,
-      `${getConfidenceLabel(garment.confidence)}. ${garment.description} Puedes editar cualquier campo antes de guardar.`
+      buildGarmentReviewMessage(garment)
     );
     showToast("Análisis aplicado. Revisa y guarda cuando encaje.");
   } catch (error) {
@@ -379,6 +379,8 @@ async function analyzeClosetWithAI() {
         photo: closetImage,
         confidence: Number(garment.confidence || 0),
         description: garment.description || "",
+        reviewReason: garment.reviewReason || "",
+        typeAlternatives: garment.typeAlternatives || [],
         source: `Zona del armario · ${formatConfidence(garment.confidence)}`
       })),
       ...drafts
@@ -1355,7 +1357,7 @@ function showStatus(node, message) {
   node.textContent = message;
 }
 
-function renderConfidenceBadge(confidence) {
+function renderConfidenceBadge(confidence, garment = {}) {
   elements.singleConfidence.innerHTML = "";
 
   if (confidence === null || confidence === undefined) {
@@ -1368,18 +1370,44 @@ function renderConfidenceBadge(confidence) {
   }
 
   const value = Number(confidence) || 0;
+  const needsReview = value < 0.8 || Boolean(garment.reviewReason);
   elements.singleConfidence.hidden = false;
   const confidencePill = document.createElement("span");
-  confidencePill.className = `confidence-pill ${value >= 0.7 ? "strong" : "review"}`;
+  confidencePill.className = `confidence-pill ${needsReview ? "review" : "strong"}`;
   confidencePill.textContent = `Confianza ${formatConfidence(value)}`;
   elements.singleConfidence.appendChild(confidencePill);
 
-  if (value < 0.7) {
+  if (needsReview) {
     const reviewPill = document.createElement("span");
     reviewPill.className = "confidence-pill review";
-    reviewPill.textContent = "Revisar recomendado";
+    reviewPill.textContent = "Revisión recomendada";
     elements.singleConfidence.appendChild(reviewPill);
   }
+
+  const alternatives = getTypeAlternatives(garment);
+  if (alternatives.length) {
+    const alternativePill = document.createElement("span");
+    alternativePill.className = "confidence-pill review";
+    alternativePill.textContent = `También podría ser: ${alternatives.join(" / ")}`;
+    elements.singleConfidence.appendChild(alternativePill);
+  }
+}
+
+function buildGarmentReviewMessage(garment) {
+  const intro = `${getConfidenceLabel(garment.confidence)}. ${garment.description || "Revisa los datos antes de guardar."}`;
+  const needsReview = Number(garment.confidence || 0) < 0.8 || Boolean(garment.reviewReason);
+  const review = needsReview
+    ? " SACLO no está completamente seguro. Revisa tipo y temporada antes de guardar."
+    : " Puedes editar cualquier campo antes de guardar.";
+  const alternatives = getTypeAlternatives(garment);
+  const alternativeCopy = alternatives.length ? ` También podría ser: ${alternatives.join(" / ")}.` : "";
+  return `${intro}${review}${alternativeCopy}`;
+}
+
+function getTypeAlternatives(garment) {
+  return Array.isArray(garment?.typeAlternatives)
+    ? garment.typeAlternatives.filter(Boolean).slice(0, 3)
+    : [];
 }
 
 function showToast(message) {
