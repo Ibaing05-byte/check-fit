@@ -939,15 +939,16 @@ function renderAll() {
 }
 
 function updateOnboardingMode() {
-  document.body.classList.toggle("has-wardrobe", wardrobe.length > 0);
-  document.body.classList.toggle("empty-wardrobe", wardrobe.length === 0);
+  const canRecommendDailyLooks = wardrobe.length >= 3;
+  document.body.classList.toggle("has-wardrobe", canRecommendDailyLooks);
+  document.body.classList.toggle("empty-wardrobe", !canRecommendDailyLooks);
 }
 
 function renderStats() {
   elements.totalItems.textContent = wardrobe.length;
   elements.pendingItems.textContent = drafts.length;
   elements.pendingBadge.textContent = drafts.length;
-  elements.heroItemCount.textContent = `${wardrobe.length} prendas`;
+  elements.heroItemCount.textContent = wardrobe.length < 3 ? `${wardrobe.length}/5 prendas` : `${wardrobe.length} prendas`;
   elements.confirmAllPending.disabled = drafts.length === 0;
   elements.clearPending.disabled = drafts.length === 0;
   elements.homeWardrobeCount.textContent = wardrobe.length;
@@ -1055,7 +1056,8 @@ function renderHero() {
 function renderHome() {
   const dailyContext = getDailyContext();
   const profile = getUserStyleProfile();
-  dailyOutfit = wardrobe.length
+  const canRecommendDailyLooks = wardrobe.length >= 3;
+  dailyOutfit = canRecommendDailyLooks
     ? recommendOutfit(wardrobe, dailyContext, {
       excludeIds: [...new Set([...readLastOutfitIds(), ...dailyExcludeIds])],
       recentOutfits: getRecentWeeklyOutfits(),
@@ -1065,14 +1067,14 @@ function renderHome() {
     })
     : { pieces: [] };
 
-  elements.dailyTitle.textContent = dailyOutfit.pieces.length ? getDailyLookName(dailyOutfit, dailyContext) : "Tu look está esperando";
+  elements.dailyTitle.textContent = dailyOutfit.pieces.length ? getDailyLookName(dailyOutfit, dailyContext) : "Empieza con tus primeras prendas";
   elements.dailyLookStack.innerHTML = "";
   dailyOutfit.pieces.slice(0, 4).forEach(item => elements.dailyLookStack.appendChild(createImageElement(item)));
   elements.dailyCreateButton.disabled = !dailyOutfit.pieces.length;
   elements.dailyAnotherButton.disabled = !dailyOutfit.pieces.length;
 
   if (!dailyOutfit.pieces.length) {
-    elements.dailyMessage.textContent = "Añade base, calzado y una capa para que SACLO empiece a proponerte fits útiles.";
+    elements.dailyMessage.textContent = "Con 5 prendas SACLO ya puede crear tus primeros looks.";
   } else {
     elements.dailyMessage.textContent = getDailyMessage(dailyContext, dailyOutfit, profile);
   }
