@@ -211,7 +211,7 @@ select option {
   opacity: 0.96;
 }
 
-.beta-pill,
+.brand-pill,
 .count-pill,
 .usage-pill {
   display: inline-grid;
@@ -1758,7 +1758,7 @@ select option {
     font-size: 16px;
   }
 
-  .beta-pill {
+  .brand-pill {
     min-height: 28px;
     padding: 5px 8px;
     font-size: 11px;

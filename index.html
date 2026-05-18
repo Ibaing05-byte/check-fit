@@ -15,7 +15,7 @@
   <link rel="stylesheet" href="styles.css" />
   <script type="module" src="app.js"></script>
 </head>
-<body>
+<body class="new-wardrobe empty-wardrobe">
   <div class="app-shell">
     <header id="home" class="app-hero app-screen" aria-label="Inicio de SACLO">
       <nav class="topbar" aria-label="Resumen de producto">
@@ -23,7 +23,7 @@
           <img class="brand-logo" src="assets/app-icon-saclo.png" alt="SACLO" />
           <span class="brand-mark">SACLO</span>
         </a>
-        <span class="beta-pill">Estilo inteligente</span>
+        <span class="brand-pill">Estilo inteligente</span>
       </nav>
       <section class="hero-grid">
         <div class="hero-copy">
@@ -40,8 +40,8 @@
         </div>
         <div class="hero-phone" aria-label="Vista resumida de SACLO">
           <div class="phone-status">
-            <span>Primeros looks</span>
-            <strong id="heroItemCount">0/5 prendas</strong>
+            <span>Vista diaria</span>
+            <strong id="heroItemCount">Armario listo</strong>
           </div>
           <div class="look-stack" id="heroLookStack"></div>
           <div class="phone-outfit-card">
@@ -87,13 +87,13 @@
         <article class="daily-look-card">
           <div>
             <p class="eyebrow">Hoy en SACLO</p>
-            <h2 id="dailyTitle">Tu look está esperando</h2>
+            <h2 id="dailyTitle">Tu primer look empieza con tu armario</h2>
           </div>
           <div id="dailyLookStack" class="daily-look-stack"></div>
           <p id="dailyMessage">Añade algunas prendas para desbloquear una recomendación diaria más precisa.</p>
           <div class="quick-actions">
-            <button id="dailyCreateButton" class="primary" type="button">Usar este look</button>
-            <button id="dailyAnotherButton" class="secondary" type="button">Generar otro</button>
+            <button id="dailyCreateButton" class="primary" type="button" hidden>Usar este look</button>
+            <button id="dailyAnotherButton" class="secondary" type="button" hidden>Generar otro</button>
           </div>
         </article>
 
@@ -240,7 +240,7 @@
             <div class="ai-panel">
               <div>
                 <p class="eyebrow">Análisis inteligente</p>
-                <small>Detectamos hasta 8 prendas claras por zona para mantener resultados fiables.</small>
+                <small>SACLO prioriza las prendas más visibles para darte mejores resultados.</small>
               </div>
               <button id="analyzeClosetAI" class="primary" type="button" disabled>Analizar esta zona</button>
             </div>

@@ -982,7 +982,7 @@ function renderOnboardingState() {
   elements.starterProgressBar.parentElement.hidden = !started;
   elements.starterProgressText.hidden = !started;
   elements.starterProgressBar.style.width = `${progress}%`;
-  elements.starterProgressText.textContent = `${wardrobe.length}/5 prendas añadidas`;
+  elements.starterProgressText.textContent = "Te faltan pocas prendas para crear tus primeros looks.";
 }
 
 function renderStats() {
@@ -1111,11 +1111,15 @@ function renderHome() {
   elements.dailyTitle.textContent = dailyOutfit.pieces.length ? getDailyLookName(dailyOutfit, dailyContext) : "Empieza con tus primeras prendas";
   elements.dailyLookStack.innerHTML = "";
   dailyOutfit.pieces.slice(0, 4).forEach(item => elements.dailyLookStack.appendChild(createImageElement(item)));
-  elements.dailyCreateButton.disabled = !dailyOutfit.pieces.length;
-  elements.dailyAnotherButton.disabled = !dailyOutfit.pieces.length;
+  const hasDailyLook = Boolean(dailyOutfit.pieces.length);
+  elements.dailyCreateButton.hidden = !hasDailyLook;
+  elements.dailyAnotherButton.hidden = !hasDailyLook;
+  elements.dailyCreateButton.disabled = !hasDailyLook;
+  elements.dailyAnotherButton.disabled = !hasDailyLook;
 
-  if (!dailyOutfit.pieces.length) {
-    elements.dailyMessage.textContent = "Con 5 prendas SACLO ya puede crear tus primeros looks.";
+  if (!hasDailyLook) {
+    elements.dailyTitle.textContent = "Tu primer look empieza con tu armario";
+    elements.dailyMessage.textContent = "Sube algunas prendas y SACLO preparará tus primeras combinaciones.";
   } else {
     elements.dailyMessage.textContent = getDailyMessage(dailyContext, dailyOutfit, profile);
   }
@@ -1188,7 +1192,7 @@ function generateDailyAlternative() {
 }
 
 function getDailyLookName(outfit, context) {
-  if (!outfit?.pieces?.length) return "Tu look está esperando";
+  if (!outfit?.pieces?.length) return "Tu primer look empieza con tu armario";
   return createOutfitTitle({ ...context, vibe: outfit.vibe, vibeKey: outfit.vibeKey });
 }
 
