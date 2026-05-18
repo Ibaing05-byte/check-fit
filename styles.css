@@ -408,6 +408,13 @@ select option {
   font-size: 12px;
 }
 
+.forgotten-actions {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 7px;
+}
+
 .retention-grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
@@ -1431,7 +1438,8 @@ select option {
   .inline-actions,
   .stats-strip,
   .result-actions,
-  .crop-actions {
+  .crop-actions,
+  .forgotten-actions {
     align-items: stretch;
   }
 
@@ -1439,12 +1447,14 @@ select option {
   .result-actions button,
   .crop-actions button,
   .draft-actions button,
+  .forgotten-actions button,
   .quick-actions a,
   .quick-actions button {
     width: 100%;
   }
 
-  .draft-actions {
+  .draft-actions,
+  .forgotten-actions {
     grid-template-columns: 1fr;
   }
 

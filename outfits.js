@@ -71,7 +71,7 @@ const VIBE_PROFILES = {
 
 export function recommendOutfit(wardrobe, context, options = {}) {
   const requiredGroups = getRequiredGroups(wardrobe, context);
-  const vibe = resolveVibe(context);
+  const vibe = resolveVibe(context, options);
   const attempts = Array.from({ length: 34 }, () => buildLookCandidate(wardrobe, context, requiredGroups, options, vibe));
   const best = attempts
     .filter(candidate => candidate.pieces.length)
@@ -200,10 +200,12 @@ export function renderHistoryItem(outfit, createImageElement, callbacks) {
 }
 
 function buildLookCandidate(wardrobe, context, requiredGroups, options, vibe) {
-  let selected = [];
+  const anchor = options.anchorItemId ? wardrobe.find(item => item.id === options.anchorItemId) : null;
+  let selected = anchor ? [anchor] : [];
   const excludeIds = options.excludeIds || [];
 
   requiredGroups.forEach(group => {
+    if (selected.some(piece => getItemGroups(piece).includes(group))) return;
     const item = pickBestItem(group, wardrobe, context, selected, excludeIds, options, vibe);
     if (item) selected.push(item);
     selected = normalizeLookPieces(selected);
@@ -241,6 +243,7 @@ function scoreItem(item, context, selected, excludeIds, options, vibe) {
   const seasonTarget = getSeasonTarget(context.temperature, context.climate);
 
   score += scoreVibeFit(item, vibe);
+  score += scoreProfileFit(item, options.styleProfile);
   if (styleTargets.includes(item.style)) score += 24;
   if (context.style && context.style !== "cualquiera" && item.style === context.style) score += 14;
   if (item.season === seasonTarget) score += 22;
@@ -256,6 +259,7 @@ function scoreItem(item, context, selected, excludeIds, options, vibe) {
   score += colorHarmonyScore(item.color, selected.map(piece => piece.color));
 
   if (excludeIds.includes(item.id)) score -= 12;
+  if (options.avoidPieceIds?.includes(item.id)) score -= 22;
   if (options.favoritePieceIds?.includes(item.id)) score += 7;
   if (item.favorite) score += 10;
   if (isForgottenItem(item)) score += 12;
@@ -290,6 +294,9 @@ function scoreLook(pieces, requiredGroups, context, options, vibe) {
   const recentOutfits = options.recentOutfits || [];
   const key = combinationKey(pieces);
   if (recentOutfits.some(outfit => combinationKey(outfit.pieces || []) === key)) score -= 90;
+  score -= scoreRecentOverlapPenalty(pieces, recentOutfits);
+  if (options.anchorItemId && !pieces.some(piece => piece.id === options.anchorItemId)) score -= 120;
+  if (options.styleProfile?.preferredVibes?.includes(vibe.label)) score += 10;
 
   if (context.temperature <= 12 && !pieces.some(piece => ["abrigo", "chaqueta", "cazadora", "sudadera", "jersey"].includes(piece.type))) score -= 22;
   if (context.temperature >= 26 && pieces.some(piece => ["abrigo", "bufanda"].includes(piece.type))) score -= 24;
@@ -312,8 +319,17 @@ function getSeasonTarget(temperature, climate) {
   return "entretiempo";
 }
 
-function resolveVibe(context) {
+function resolveVibe(context, options = {}) {
+  const forcedKey = normalizeVibeKey(options.preferredVibe || context.vibe);
+  if (forcedKey && VIBE_PROFILES[forcedKey]) {
+    return {
+      key: forcedKey,
+      ...VIBE_PROFILES[forcedKey]
+    };
+  }
+
   let key = "casual clean";
+  const profile = options.styleProfile || {};
   if (context.climate === "lluvia") key = "rainy day";
   else if (context.temperature <= 12 || context.climate === "frío") key = "winter layered";
   else if (context.temperature >= 26 || context.climate === "calor") key = "summer basic";
@@ -325,6 +341,7 @@ function resolveVibe(context) {
   else if (context.style === "streetwear") key = "streetwear relaxed";
   else if (context.style === "elegante" || context.style === "formal") key = "smart casual";
   else if (context.style === "minimalista") key = "minimal premium";
+  else if (profile.preferredVibes?.length) key = normalizeVibeKey(profile.preferredVibes[0]) || key;
 
   return {
     key,
@@ -347,6 +364,16 @@ function scoreVibeFit(item, vibe) {
   if (vibe.key === "office fit" && ["camisa", "polo", "pantalón", "zapatos", "chaqueta", "abrigo"].includes(item.type)) score += 10;
   if (vibe.key === "university fit" && ["sudadera", "zapatillas", "vaqueros", "mochila", "camiseta"].includes(item.type)) score += 8;
   if (vibe.key === "night out" && ["camisa", "chaqueta", "cazadora", "vestido", "zapatos", "botas", "bolso"].includes(item.type)) score += 10;
+  return score;
+}
+
+function scoreProfileFit(item, profile = {}) {
+  let score = 0;
+  if (profile.favoriteStyles?.includes(item.style)) score += 10;
+  if (profile.favoriteColors?.includes(normalizeColor(item.color))) score += 6;
+  if (profile.favoriteItemIds?.includes(item.id)) score += 8;
+  if (profile.formality === "pulido" && ["elegante", "formal", "minimalista"].includes(item.style)) score += 8;
+  if (profile.formality === "relajado" && ["casual", "streetwear", "deportivo"].includes(item.style)) score += 8;
   return score;
 }
 
@@ -582,6 +609,10 @@ function buildAdvice(pieces, requiredGroups, context, options, vibe, palette) {
 
   const forgotten = pieces.find(isForgottenItem);
   if (forgotten) advice.push(`Hace tiempo que no usas ${forgotten.name}; aquí vuelve sin forzar el look.`);
+  if (options.anchorItemId && forgotten?.id !== options.anchorItemId) {
+    const anchor = pieces.find(piece => piece.id === options.anchorItemId);
+    if (anchor) advice.push(`Construye el look alrededor de ${anchor.name} sin que parezca una elección aislada.`);
+  }
 
   const shoe = pieces.find(piece => TYPE_GROUPS.shoes.includes(piece.type));
   if (!shoe) advice.push("Añade un calzado claro y el look sube mucho.");
@@ -603,6 +634,7 @@ function buildAdvice(pieces, requiredGroups, context, options, vibe, palette) {
   if (vibe.key === "night out") advice.push("Tiene un punto más especial sin perder naturalidad.");
 
   if (options.recentOutfits?.length) advice.push("Evita repetir el último outfit y mantiene variedad real.");
+  if (options.styleProfile?.favoriteStyles?.length) advice.push(`Respeta tu línea habitual: ${formatList(options.styleProfile.favoriteStyles.slice(0, 2))}.`);
 
   return [...new Set(advice)].slice(0, 3);
 }
@@ -611,6 +643,18 @@ function buildMissingAdvice(requiredGroups) {
   return requiredGroups
     .map(group => `Añade ${GROUP_LABELS[group]} para que SACLO pueda cerrar mejor el look.`)
     .slice(0, 2);
+}
+
+function scoreRecentOverlapPenalty(pieces, recentOutfits) {
+  if (!pieces.length || !recentOutfits.length) return 0;
+  return recentOutfits.slice(0, 3).reduce((penalty, outfit, index) => {
+    const ids = new Set((outfit.pieceIds?.length ? outfit.pieceIds : (outfit.pieces || []).map(piece => piece.id)).filter(Boolean));
+    const overlap = pieces.filter(piece => ids.has(piece.id)).length;
+    if (!overlap) return penalty;
+    const ratio = overlap / pieces.length;
+    const recencyWeight = index === 0 ? 36 : 22;
+    return penalty + Math.round(ratio * recencyWeight) + (overlap >= pieces.length - 1 ? 30 : 0);
+  }, 0);
 }
 
 function countColorClashes(colors) {
@@ -667,6 +711,13 @@ function areClashingStyles(a, b) {
 
 function combinationKey(pieces) {
   return pieces.map(piece => piece.id).filter(Boolean).sort().join("|");
+}
+
+function normalizeVibeKey(value) {
+  const normalized = String(value || "").trim().toLowerCase();
+  if (!normalized) return "";
+  if (VIBE_PROFILES[normalized]) return normalized;
+  return Object.entries(VIBE_PROFILES).find(([, profile]) => profile.label === normalized || profile.copy === normalized)?.[0] || "";
 }
 
 function normalizeColor(color) {

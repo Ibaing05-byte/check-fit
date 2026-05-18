@@ -142,6 +142,8 @@ Devuelve hasta 8 prendas claramente visibles y una nota de revisión. No debe in
 - “Hoy en SACLO” ahora actúa como companion diario: look accionable, variaciones, prendas olvidadas, consejos y señales de uso.
 - Favoritos de prendas y outfits usados como señal para futuras recomendaciones.
 - Historial inteligente con vibe, paleta, prendas usadas, favorito, usado, variación y eliminación.
+- Perfil de estilo inferido localmente: estilos, colores, vibes, prendas favoritas, ocasión habitual y nivel de formalidad.
+- Prendas olvidadas accionables: SACLO puede crear un look alrededor de una prenda concreta.
 
 ## Outfit Intelligence
 
@@ -154,6 +156,8 @@ El motor local ya no decide solo por tipo de prenda. Ahora puntúa:
 - Compatibilidad de estilos y colores.
 - Clima real: lluvia, frío, calor, viento, nublado y temperatura.
 - Historial: evita combinaciones recientes, rescata prendas olvidadas y mezcla favoritos con variedad.
+- Perfil local: favoritos, outfits usados, outfits guardados y prendas favoritas influyen sin necesidad de cuenta.
+- `getUserStyleProfile()` infiere y guarda en `localStorage` una preferencia simple de estilo en `sacloStyleProfile`.
 
 La explicación intenta sonar como un stylist: breve, concreta y conectada con clima, ocasión, paleta y uso real del armario.
 

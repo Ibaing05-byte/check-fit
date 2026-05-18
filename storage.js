@@ -151,6 +151,7 @@ export function normalizeOutfitRecord(data) {
     context: data.context || {},
     explanation: data.explanation || "",
     vibe: String(data.vibe || data.context?.vibe || "").trim(),
+    vibeKey: String(data.vibeKey || data.context?.vibeKey || "").trim(),
     palette: normalizePalette(data.palette),
     advice: Array.isArray(data.advice) ? data.advice.map(item => String(item)).filter(Boolean).slice(0, 4) : [],
     favorite: Boolean(data.favorite),
