@@ -176,6 +176,13 @@ La explicación intenta sonar como un stylist: breve, concreta y conectada con c
 - `vision.js`: color local, selección asistida y puntos preparados para visión.
 - `backend/server.js`: API Express con OpenAI Vision y Structured Outputs.
 
+## Icono de app
+
+- Icono principal: `assets/app-icon-saclo.png`.
+- Favicon 192x192: `assets/app-icon-192.png`.
+- Favicon 512x512: `assets/app-icon-512.png`.
+- iPhone usa `assets/app-icon-saclo.png` como `apple-touch-icon` al añadir SACLO a la pantalla de inicio.
+
 ## Seguridad
 
 - `OPENAI_API_KEY` nunca va en el frontend.
