@@ -44,9 +44,10 @@ const LEGACY_LOCAL_API_URLS = new Set([
   "http://127.0.0.1:3001"
 ]);
 const MAX_ANALYSIS_SIDE = 1200;
-const ANALYSIS_JPEG_QUALITY = 0.76;
-const MAX_CLIENT_IMAGE_MB = 5.5;
+const ANALYSIS_JPEG_QUALITY = 0.74;
+const MAX_CLIENT_IMAGE_MB = 2.2;
 const VISION_CACHE_LIMIT = 12;
+const VISION_REQUEST_TIMEOUT_MS = 18000;
 
 const elements = {
   heroItemCount: document.getElementById("heroItemCount"),
@@ -162,6 +163,7 @@ let cropPreviewColor = "";
 let toastTimeout = 0;
 let analysisProgressTimer = 0;
 const visionAnalysisCache = new Map();
+const visionAnalysisInFlight = new Map();
 
 init();
 
@@ -334,21 +336,22 @@ async function previewClosetPhoto(event) {
   elements.closetWorkspace.hidden = false;
   elements.analyzeClosetAI.disabled = false;
   resetCropSelection();
-  elements.scanStatus.textContent = "Arrastra sobre una prenda. Verás una preview antes de guardarla.";
-  showStatus(elements.aiClosetStatus, "Análisis inteligente listo. Mejor con buena luz y prendas visibles.");
+  elements.scanStatus.textContent = "Zona cargada. Puedes detectar prendas visibles o seleccionar una pieza concreta.";
+  showStatus(elements.aiClosetStatus, "Para mejores resultados: buena luz, prendas visibles y pocas piezas por foto.");
 }
 
 async function analyzeClosetWithAI() {
   if (!closetImage) {
-    showStatus(elements.aiClosetStatus, "Sube una foto del armario antes de detectar prendas.");
+    showStatus(elements.aiClosetStatus, "Sube una zona del armario antes de detectar prendas visibles.");
     return;
   }
 
-  setButtonLoading(elements.analyzeClosetAI, "Detectando prendas...");
+  setButtonLoading(elements.analyzeClosetAI, "Analizando zona...");
   showAnalysisSkeletons(3);
   startAnalysisProgress(elements.aiClosetStatus, [
-    "Detectando prendas...",
-    "Separando piezas visibles...",
+    "Analizando esta zona...",
+    "Detectando prendas visibles...",
+    "Separando piezas claras...",
     "Analizando colores...",
     "Preparando resultados..."
   ]);
@@ -360,9 +363,9 @@ async function analyzeClosetWithAI() {
     if (!detected.length) {
       showStatus(
         elements.aiClosetStatus,
-        payload.notes || "No se detectaron prendas claras. Intenta con mejor luz o prendas menos superpuestas."
+        payload.notes || "No hemos detectado prendas claras. Prueba con mejor luz o con menos prendas superpuestas."
       );
-      elements.scanStatus.textContent = "No se detectaron prendas claras. Prueba con una foto más iluminada o selecciona una zona concreta.";
+      elements.scanStatus.textContent = "No hemos detectado prendas claras. Prueba con mejor luz o con menos prendas superpuestas.";
       return;
     }
 
@@ -376,19 +379,22 @@ async function analyzeClosetWithAI() {
         photo: closetImage,
         confidence: Number(garment.confidence || 0),
         description: garment.description || "",
-        source: `Análisis inteligente · ${formatConfidence(garment.confidence)}`
+        source: `Zona del armario · ${formatConfidence(garment.confidence)}`
       })),
       ...drafts
     ];
 
     saveDrafts(drafts);
     renderAll();
+    const resultCopy = detected.length < 3
+      ? "Solo detecté las prendas más claras. Puedes subir otra zona para completar tu armario."
+      : "Encontré estas prendas visibles. Revísalas antes de guardarlas.";
     showStatus(
       elements.aiClosetStatus,
-      `${detected.length} prendas detectadas. ${payload.notes || "Revisa cada tarjeta antes de guardar."}`
+      `${detected.length} prendas visibles. ${resultCopy}`
     );
-    elements.scanStatus.textContent = "También puedes seguir usando recorte asistido sobre la misma foto.";
-    showToast("Prendas detectadas y enviadas a revisión.");
+    elements.scanStatus.textContent = "Puedes subir otra zona o seleccionar una prenda concreta sobre la misma foto.";
+    showToast("Prendas visibles listas para revisar.");
   } catch (error) {
     showStatus(
       elements.aiClosetStatus,
@@ -397,7 +403,7 @@ async function analyzeClosetWithAI() {
   } finally {
     stopAnalysisProgress();
     clearAnalysisSkeletons();
-    setButtonReady(elements.analyzeClosetAI, "Detectar prendas", Boolean(closetImage));
+    setButtonReady(elements.analyzeClosetAI, "Analizar esta zona", Boolean(closetImage));
   }
 }
 
@@ -1397,30 +1403,49 @@ async function requestVisionAnalysis(endpoint, imageDataUrl, options = {}) {
     return cached;
   }
 
-  let response;
+  const inFlight = visionAnalysisInFlight.get(cacheKey);
+  if (inFlight) return inFlight;
+
+  const request = (async () => {
+    const controller = new AbortController();
+    const timeout = window.setTimeout(() => controller.abort(), VISION_REQUEST_TIMEOUT_MS);
+    let response;
+
+    try {
+      response = await fetch(`${apiBaseUrl}${endpoint}`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        signal: controller.signal,
+        body: JSON.stringify({
+          image,
+          filename: options.filename || ""
+        })
+      });
+    } catch {
+      throw new Error("El análisis inteligente no está disponible ahora mismo. Inténtalo más tarde.");
+    } finally {
+      window.clearTimeout(timeout);
+    }
+
+    const payload = await response.json().catch(() => ({}));
+
+    if (!response.ok || payload.success === false) {
+      throw new Error(getVisionErrorMessage(payload, response.status));
+    }
+
+    writeVisionCache(cacheKey, payload);
+    return payload;
+  })();
+
+  visionAnalysisInFlight.set(cacheKey, request);
+
   try {
-    response = await fetch(`${apiBaseUrl}${endpoint}`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify({
-        image,
-        filename: options.filename || ""
-      })
-    });
-  } catch {
-    throw new Error("El análisis inteligente no está disponible ahora mismo. Inténtalo más tarde.");
+    return await request;
+  } finally {
+    visionAnalysisInFlight.delete(cacheKey);
   }
-
-  const payload = await response.json().catch(() => ({}));
-
-  if (!response.ok || payload.success === false) {
-    throw new Error(getVisionErrorMessage(payload, response.status));
-  }
-
-  writeVisionCache(cacheKey, payload);
-  return payload;
 }
 
 function applyGarmentSuggestion(garment) {
@@ -1454,8 +1479,8 @@ async function prepareImageForAnalysis(imageDataUrl) {
     optimized = canvas.toDataURL("image/jpeg", quality);
     if (estimateDataUrlSizeMb(optimized) <= MAX_CLIENT_IMAGE_MB) break;
 
-    side = Math.max(760, Math.round(side * 0.84));
-    quality = Math.max(0.66, quality - 0.04);
+    side = Math.max(720, Math.round(side * 0.82));
+    quality = Math.max(0.7, quality - 0.03);
   }
 
   if (!optimized || estimateDataUrlSizeMb(optimized) > MAX_CLIENT_IMAGE_MB) {

@@ -17,7 +17,11 @@ OPENAI_API_KEY=tu_clave
 PORT=3000
 FRONTEND_ORIGIN=https://saclo.net
 OPENAI_VISION_MODEL=gpt-4.1-mini
-MAX_IMAGE_MB=6
+MAX_IMAGE_MB=4
+MAX_OPENAI_IMAGE_SIDE=1200
+OPENAI_IMAGE_JPEG_QUALITY=76
+TARGET_OPENAI_IMAGE_MB=2.2
+MAX_INPUT_PIXELS=24000000
 OPENAI_TIMEOUT_MS=12000
 ANALYSIS_CACHE_TTL_MS=600000
 ANALYSIS_CACHE_LIMIT=80
@@ -109,7 +113,7 @@ Response:
 
 ### POST /api/analyze-closet
 
-Analiza una foto de armario o varias prendas. Devuelve como máximo 8 prendas claramente visibles.
+Analiza una zona del armario o varias prendas visibles. Devuelve como máximo 8 prendas claramente visibles por imagen.
 
 Request:
 
@@ -151,6 +155,8 @@ Response:
 - Evitar duplicados por tipo, color y nombre.
 - Priorizar prendas claramente visibles.
 - Precisión por encima de cantidad: mejor 3 prendas bien que 8 dudosas.
+- El flujo recomendado para armarios completos es subir varias fotos por zonas: camisetas, pantalones, chaquetas, zapatillas y accesorios.
+- El límite de 8 prendas por imagen mejora precisión, velocidad y control de costes.
 - Mantener confianza entre `0` y `1`.
 - Usar solo tipos, colores, estilos y temporadas permitidos por el frontend.
 - Devolver `secondaryColor`, `occasion`, `imageContext` y `reviewReason` para mejorar la revisión.
@@ -165,12 +171,17 @@ Response:
 
 ## Cost control
 
-- El frontend reduce la imagen antes de enviarla.
-- El backend limita el tamaño de imagen.
+- El frontend reduce la imagen antes de enviarla: lado largo máximo `1200px`, JPEG `0.7-0.8` y objetivo aproximado `2.2 MB`.
+- El frontend evita llamadas duplicadas simultáneas con la misma imagen y reutiliza respuestas de la sesión.
+- El backend limita el tamaño de payload con `MAX_IMAGE_MB` y lee dimensiones básicas para no reenviar imágenes por encima de `1200px`.
+- El backend intenta reoptimizar con `sharp` cuando está disponible: JPEG, lado largo máximo `1200px` y calidad `70-80`.
+- Si el optimizador de imagen no está disponible, el backend mantiene el flujo y se apoya en la compresión del frontend.
 - El backend usa timeout razonable para evitar esperas largas.
-- El backend cachea análisis repetidos durante unos minutos para evitar llamadas duplicadas.
-- `analyze-closet` devuelve máximo 8 prendas.
+- El backend cachea análisis repetidos durante unos minutos y reutiliza llamadas en curso para evitar duplicados.
+- `analyze-closet` devuelve máximo 8 prendas por zona/imagen.
 - No hay análisis automático en bucle; el usuario pulsa el botón cuando quiere analizar.
+- Los prompts son compactos y las respuestas limitan textos largos para reducir tokens.
+- Los logs de análisis incluyen endpoint, duración, tamaño aproximado de imagen, optimización aplicada y número de prendas detectadas.
 
 ## Despliegue
 

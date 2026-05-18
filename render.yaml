@@ -15,6 +15,12 @@ services:
       - key: OPENAI_VISION_MODEL
         value: gpt-4.1-mini
       - key: MAX_IMAGE_MB
-        value: 6
+        value: 4
+      - key: MAX_OPENAI_IMAGE_SIDE
+        value: 1200
+      - key: OPENAI_IMAGE_JPEG_QUALITY
+        value: 76
+      - key: TARGET_OPENAI_IMAGE_MB
+        value: 2.2
       - key: OPENAI_API_KEY
         sync: false

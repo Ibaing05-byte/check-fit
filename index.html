@@ -127,7 +127,7 @@
 
           <div class="segmented-control" role="tablist" aria-label="Modo de captura">
             <button id="singleModeButton" class="active" type="button" role="tab" aria-selected="true">Prenda individual</button>
-            <button id="closetModeButton" type="button" role="tab" aria-selected="false">Desde armario</button>
+            <button id="closetModeButton" type="button" role="tab" aria-selected="false">Por zonas</button>
           </div>
 
           <form id="singleItemForm" class="capture-mode active">
@@ -180,23 +180,30 @@
           </form>
 
           <div id="closetScanPanel" class="capture-mode">
-            <p class="section-copy">Crea prendas desde una foto del armario: selecciona una zona, revisa el recorte y guárdalo como prenda independiente.</p>
+            <p class="section-copy">Digitaliza tu armario por zonas. SACLO funciona mejor con pocas prendas visibles, buena luz y sin demasiadas piezas superpuestas.</p>
+            <div class="zone-chips" aria-label="Zonas recomendadas">
+              <span>Camisetas</span>
+              <span>Pantalones</span>
+              <span>Chaquetas</span>
+              <span>Zapatillas</span>
+              <span>Accesorios</span>
+            </div>
             <div class="photo-tips" aria-label="Consejos para detectar prendas">
               <span>Buena luz</span>
               <span>Prendas visibles</span>
-              <span>Menos superposición</span>
+              <span>Pocas piezas</span>
             </div>
             <label class="upload-drop closet" for="closetPhoto">
-              <span>Subir foto del armario</span>
-              <small>Mejor con buena luz, prendas separadas y fondo claro</small>
+              <span>Subir zona del armario</span>
+              <small>Para mejores resultados: buena luz, prendas visibles y pocas piezas por foto</small>
               <input id="closetPhoto" type="file" accept="image/*" />
             </label>
             <div class="ai-panel">
               <div>
                 <p class="eyebrow">Análisis inteligente</p>
-                <small>Detecta prendas visibles y las deja listas para revisar antes de guardar.</small>
+                <small>Detectamos las prendas más claras de cada imagen para mantener resultados fiables.</small>
               </div>
-              <button id="analyzeClosetAI" class="primary" type="button" disabled>Detectar prendas</button>
+              <button id="analyzeClosetAI" class="primary" type="button" disabled>Analizar esta zona</button>
             </div>
             <p id="aiClosetStatus" class="status-note" hidden></p>
 
@@ -286,7 +293,7 @@
           </div>
           <div class="inline-actions">
             <span id="pendingBadge" class="count-pill">0</span>
-            <button id="confirmAllPending" class="secondary" type="button">Guardar todo</button>
+            <button id="confirmAllPending" class="secondary" type="button">Guardar prendas detectadas</button>
             <button id="clearPending" class="ghost danger" type="button">Vaciar</button>
           </div>
         </div>

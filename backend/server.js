@@ -6,12 +6,16 @@ import { createHash } from "node:crypto";
 
 const PORT = Number(process.env.PORT || 3000);
 const MODEL = process.env.OPENAI_VISION_MODEL || "gpt-4.1-mini";
-const MAX_IMAGE_MB = Number(process.env.MAX_IMAGE_MB || 6);
-const JSON_BODY_LIMIT_MB = Math.ceil(MAX_IMAGE_MB * 1.4) + 1;
+const MAX_IMAGE_MB = Number(process.env.MAX_IMAGE_MB || 4);
+const JSON_BODY_LIMIT_MB = Math.ceil(MAX_IMAGE_MB * 1.37) + 1;
 const MAX_CLOSET_ITEMS = 8;
 const OPENAI_TIMEOUT_MS = Number(process.env.OPENAI_TIMEOUT_MS || 12000);
 const ANALYSIS_CACHE_TTL_MS = Number(process.env.ANALYSIS_CACHE_TTL_MS || 1000 * 60 * 10);
 const ANALYSIS_CACHE_LIMIT = Number(process.env.ANALYSIS_CACHE_LIMIT || 80);
+const MAX_OPENAI_IMAGE_SIDE = Number(process.env.MAX_OPENAI_IMAGE_SIDE || 1200);
+const OPENAI_IMAGE_JPEG_QUALITY = clampInteger(Number(process.env.OPENAI_IMAGE_JPEG_QUALITY || 76), 70, 80);
+const TARGET_OPENAI_IMAGE_MB = Number(process.env.TARGET_OPENAI_IMAGE_MB || 2.2);
+const MAX_INPUT_PIXELS = Number(process.env.MAX_INPUT_PIXELS || 24_000_000);
 
 const TYPES = [
   "camiseta",
@@ -47,6 +51,8 @@ const OCCASIONS = ["", "casual diario", "oficina", "noche", "gimnasio", "evento"
 
 const app = express();
 const analysisCache = new Map();
+const analysisInFlight = new Map();
+let sharpImportPromise = null;
 
 app.use(cors({
   origin: getAllowedOrigin()
@@ -103,32 +109,46 @@ app.get("/api/debug-openai", asyncHandler(async (_request, response) => {
 }));
 
 app.post("/api/analyze-garment", asyncHandler(async (request, response) => {
+  const startedAt = Date.now();
   requireApiKey();
-  const image = parseImagePayload(request.body);
-  const analysis = await analyzeImage({
+  const image = await prepareImageForOpenAI(parseImagePayload(request.body));
+  const analysisResult = await analyzeImage({
+    endpoint: "POST /api/analyze-garment",
     image,
     schemaName: "saclo_garment_analysis",
     schema: garmentSchema(),
     prompt: garmentPrompt(request.body?.filename),
-    maxOutputTokens: 420
+    maxOutputTokens: 340
+  });
+  const garment = normalizeGarment(analysisResult.data);
+
+  logAnalysisResult({
+    endpoint: "POST /api/analyze-garment",
+    startedAt,
+    image,
+    detectedItems: garment ? 1 : 0,
+    cached: analysisResult.cached
   });
 
   response.json({
     success: true,
-    garment: normalizeGarment(analysis)
+    garment
   });
 }));
 
 app.post("/api/analyze-closet", asyncHandler(async (request, response) => {
+  const startedAt = Date.now();
   requireApiKey();
-  const image = parseImagePayload(request.body);
-  const analysis = await analyzeImage({
+  const image = await prepareImageForOpenAI(parseImagePayload(request.body));
+  const analysisResult = await analyzeImage({
+    endpoint: "POST /api/analyze-closet",
     image,
     schemaName: "saclo_closet_analysis",
     schema: closetSchema(),
     prompt: closetPrompt(),
-    maxOutputTokens: 950
+    maxOutputTokens: 900
   });
+  const analysis = analysisResult.data;
   const garments = Array.isArray(analysis.garments)
     ? analysis.garments
       .map(normalizeGarment)
@@ -138,10 +158,18 @@ app.post("/api/analyze-closet", asyncHandler(async (request, response) => {
       .slice(0, MAX_CLOSET_ITEMS)
     : [];
 
+  logAnalysisResult({
+    endpoint: "POST /api/analyze-closet",
+    startedAt,
+    image,
+    detectedItems: garments.length,
+    cached: analysisResult.cached
+  });
+
   response.json({
     success: true,
     garments,
-    notes: analysis.notes || "Revisa los resultados antes de guardar. La IA puede equivocarse si las prendas están superpuestas."
+    notes: analysis.notes || "Revisa los resultados antes de guardar. La detección puede variar si las prendas están superpuestas."
   });
 }));
 
@@ -168,20 +196,43 @@ app.listen(PORT, () => {
   console.log(`SACLO OpenAI vision model: ${MODEL}`);
 });
 
-async function analyzeImage({ image, schemaName, schema, prompt, maxOutputTokens }) {
+async function analyzeImage({ endpoint, image, schemaName, schema, prompt, maxOutputTokens }) {
   const startedAt = Date.now();
-  const cacheKey = `${schemaName}:${hashPayload(prompt)}:${hashPayload(image)}`;
+  const cacheKey = `${schemaName}:${hashPayload(prompt)}:${hashPayload(image.dataUrl)}`;
   const cached = readAnalysisCache(cacheKey);
 
   if (cached) {
     console.log("[SACLO][analysis cache hit]", {
+      endpoint,
       schemaName,
       model: MODEL,
+      image: imageLogSummary(image),
       durationMs: Date.now() - startedAt
     });
-    return cached;
+    return {
+      data: cached,
+      cached: true
+    };
   }
 
+  const inFlight = analysisInFlight.get(cacheKey);
+  if (inFlight) {
+    console.log("[SACLO][analysis in-flight reuse]", {
+      endpoint,
+      schemaName,
+      model: MODEL,
+      image: imageLogSummary(image)
+    });
+    return inFlight;
+  }
+
+  const operation = runOpenAIAnalysis({ endpoint, image, schemaName, schema, prompt, maxOutputTokens, startedAt, cacheKey })
+    .finally(() => analysisInFlight.delete(cacheKey));
+  analysisInFlight.set(cacheKey, operation);
+  return operation;
+}
+
+async function runOpenAIAnalysis({ endpoint, image, schemaName, schema, prompt, maxOutputTokens, startedAt, cacheKey }) {
   let response;
   try {
     response = await createOpenAIResponse({
@@ -191,7 +242,7 @@ async function analyzeImage({ image, schemaName, schema, prompt, maxOutputTokens
           role: "user",
           content: [
             { type: "input_text", text: prompt },
-            { type: "input_image", image_url: image }
+            { type: "input_image", image_url: image.dataUrl }
           ]
         }
       ],
@@ -207,9 +258,11 @@ async function analyzeImage({ image, schemaName, schema, prompt, maxOutputTokens
     });
   } catch (cause) {
     logOpenAIError(cause, {
+      endpoint,
       operation: "analyzeImage",
       schemaName,
-      model: MODEL
+      model: MODEL,
+      image: imageLogSummary(image)
     });
 
     const error = new Error(cause?.message || "OpenAI no pudo completar el análisis visual.");
@@ -223,15 +276,22 @@ async function analyzeImage({ image, schemaName, schema, prompt, maxOutputTokens
     const parsed = JSON.parse(response.output_text);
     writeAnalysisCache(cacheKey, parsed);
     console.log("[SACLO][analysis complete]", {
+      endpoint,
       schemaName,
       model: MODEL,
       responseId: response?.id,
+      image: imageLogSummary(image),
       durationMs: Date.now() - startedAt,
       cached: false
     });
-    return parsed;
+    return {
+      data: parsed,
+      cached: false,
+      responseId: response?.id
+    };
   } catch (cause) {
     console.error("[SACLO][OpenAI invalid JSON response]", {
+      endpoint,
       model: MODEL,
       schemaName,
       responseId: response?.id,
@@ -239,7 +299,7 @@ async function analyzeImage({ image, schemaName, schema, prompt, maxOutputTokens
       output: response?.output,
       errorMessage: cause?.message
     });
-    const error = new Error("La IA devolvió una respuesta inválida. Prueba otra imagen o usa revisión manual.");
+    const error = new Error("El análisis devolvió una respuesta inválida. Prueba otra imagen más clara.");
     error.status = 502;
     error.code = "INVALID_AI_RESPONSE";
     throw error;
@@ -252,41 +312,29 @@ function getOpenAI() {
 
 function garmentPrompt(filename = "") {
   return [
-    "SACLO analiza armario y outfits. Devuelve JSON compacto y útil para guardar ropa.",
-    "Imagen: una sola prenda o accesorio. Si aparece un outfit completo, describe la prenda principal más clara.",
-    "Prioridad: precisión sobre cantidad. No inventes marcas, tejidos ni detalles no visibles.",
-    "Ignora fondo, muebles, sombras, piel, perchas y texto decorativo.",
-    "Color: elige el color principal visible de la prenda, no el color del fondo. Usa secondaryColor solo si hay un segundo color real.",
-    "Distingue con cuidado negro/gris, beige/blanco y azul/negro. Si dudas, baja confidence.",
-    "Temporada: dedúcela por tipo, tejido aparente y cobertura; si no está claro usa todo el año o entretiempo.",
-    "Style: usa el estilo visual dominante, sin forzar.",
+    "Analiza 1 prenda/accesorio visible y devuelve JSON corto.",
+    "Si hay outfit completo, usa la prenda principal más clara. No inventes marcas, tejidos ni detalles.",
+    "Ignora fondo, muebles, sombras, piel, perchas y texto. Precisión > detalle.",
+    "Color = color principal de la prenda; secondaryColor solo si es real. Duda negro/gris, beige/blanco o azul/negro => baja confidence.",
+    "Temporada por tipo, tejido aparente y cobertura; si dudas: todo el año o entretiempo.",
+    "Texto corto: name <=4 palabras, description <=90 caracteres, reviewReason <=80.",
     filename ? `Nombre de archivo opcional: ${String(filename).slice(0, 120)}.` : "",
-    `Tipos permitidos: ${TYPES.join(", ")}.`,
-    `Colores permitidos: ${COLORS.join(", ")}.`,
-    `Estilos permitidos: ${STYLES.join(", ")}.`,
-    `Temporadas permitidas: ${SEASONS.join(", ")}.`,
-    `Ocasiones permitidas: ${OCCASIONS.filter(Boolean).join(", ")}.`,
-    "Si la imagen es confusa, usa confidence menor de 0.7 y escribe reviewReason."
+    `Enums type=${TYPES.join("|")}; color=${COLORS.join("|")}; style=${STYLES.join("|")}; season=${SEASONS.join("|")}; occasion=${OCCASIONS.filter(Boolean).join("|")}.`,
+    "Si la imagen es confusa: confidence <0.7 y reviewReason breve."
   ].filter(Boolean).join("\n");
 }
 
 function closetPrompt() {
   return [
-    "SACLO analiza fotos de armario, perchero, cama o varias prendas juntas.",
-    "Devuelve SOLO prendas claramente visibles y separables. Precisión > cantidad.",
-    "No inventes prendas ocultas, dobladas sin forma clara, muebles, perchas, sombras, etiquetas ni partes del fondo.",
-    "Separa prendas independientes: una camiseta y un pantalón son dos prendas; un estampado o bolsillo no es otra prenda.",
-    "Si dos detecciones parecen la misma prenda, conserva solo la más clara.",
-    "Máximo 8 prendas. En fotos confusas devuelve 1-4 prendas fiables o ninguna.",
-    "Color: usa el color principal de cada prenda, no el fondo. Usa secondaryColor solo si aporta algo real.",
-    "Distingue con cuidado negro/gris, beige/blanco y azul/negro. Baja confidence si hay mala luz.",
-    "Detecta contexto visual: outfit completo, ropa doblada, ropa puesta o prendas superpuestas.",
-    "Si hay superposición, mala luz o dudas, explícalo brevemente en notes.",
-    `Tipos permitidos: ${TYPES.join(", ")}.`,
-    `Colores permitidos: ${COLORS.join(", ")}.`,
-    `Estilos permitidos: ${STYLES.join(", ")}.`,
-    `Temporadas permitidas: ${SEASONS.join(", ")}.`,
-    `Ocasiones permitidas: ${OCCASIONS.filter(Boolean).join(", ")}.`
+    "Analiza armario/perchero/cama con varias prendas. Devuelve JSON corto.",
+    "Detecta SOLO prendas claramente visibles y separables. Precisión > cantidad.",
+    "No inventes prendas ocultas, muebles, perchas, sombras, etiquetas ni fondo.",
+    "Separa prendas reales; estampados, bolsillos o partes de una prenda no cuentan.",
+    `Máximo ${MAX_CLOSET_ITEMS} prendas; si hay duda devuelve 1-4 fiables o ninguna.`,
+    "Quita duplicados evidentes. Color = principal de cada prenda; secondaryColor solo si aporta.",
+    "Duda negro/gris, beige/blanco o azul/negro, mala luz o superposición => baja confidence.",
+    "Texto corto: name <=4 palabras, description <=90 caracteres, reviewReason <=80, notes <=120.",
+    `Enums type=${TYPES.join("|")}; color=${COLORS.join("|")}; style=${STYLES.join("|")}; season=${SEASONS.join("|")}; occasion=${OCCASIONS.filter(Boolean).join("|")}.`
   ].join("\n");
 }
 
@@ -309,20 +357,20 @@ function closetSchema() {
         type: "array",
         maxItems: MAX_CLOSET_ITEMS,
         items: {
-        type: "object",
-        additionalProperties: false,
-        required: ["name", "type", "color", "secondaryColor", "style", "season", "occasion", "imageContext", "reviewReason", "description", "confidence"],
-        properties: garmentProperties()
-      }
+          type: "object",
+          additionalProperties: false,
+          required: ["name", "type", "color", "secondaryColor", "style", "season", "occasion", "imageContext", "reviewReason", "description", "confidence"],
+          properties: garmentProperties()
+        }
       },
-      notes: { type: "string" }
+      notes: { type: "string", maxLength: 160 }
     }
   };
 }
 
 function garmentProperties() {
   return {
-    name: { type: "string" },
+    name: { type: "string", maxLength: 48 },
     type: { type: "string", enum: TYPES },
     color: { type: "string", enum: COLORS },
     secondaryColor: { type: "string", enum: ["", ...COLORS] },
@@ -330,8 +378,8 @@ function garmentProperties() {
     season: { type: "string", enum: SEASONS },
     occasion: { type: "string", enum: OCCASIONS },
     imageContext: { type: "string", enum: ["prenda individual", "outfit completo", "ropa doblada", "ropa puesta", "prendas superpuestas", "otro"] },
-    reviewReason: { type: "string" },
-    description: { type: "string" },
+    reviewReason: { type: "string", maxLength: 100 },
+    description: { type: "string", maxLength: 120 },
     confidence: { type: "number", minimum: 0, maximum: 1 }
   };
 }
@@ -416,7 +464,115 @@ function parseImagePayload(body) {
     throw error;
   }
 
-  return `data:${match[1].replace("jpg", "jpeg")};base64,${base64}`;
+  const mimeType = match[1].replace("jpg", "jpeg");
+  const inputBuffer = Buffer.from(base64, "base64");
+  const dimensions = readImageDimensions(inputBuffer, mimeType);
+
+  return {
+    dataUrl: `data:${mimeType};base64,${base64}`,
+    mimeType,
+    base64,
+    bytes,
+    sizeMb: bytesToMb(bytes),
+    originalBytes: bytes,
+    originalSizeMb: bytesToMb(bytes),
+    width: dimensions.width,
+    height: dimensions.height,
+    optimized: false
+  };
+}
+
+async function prepareImageForOpenAI(image) {
+  const sharp = await getSharp();
+  if (!sharp) {
+    const sideTooLarge = Math.max(image.width, image.height) > MAX_OPENAI_IMAGE_SIDE;
+    if (image.sizeMb > TARGET_OPENAI_IMAGE_MB || sideTooLarge) {
+      const error = new Error("La imagen supera el tamaño optimizado permitido. Prueba con una imagen más pequeña.");
+      error.status = 413;
+      error.code = "IMAGE_TOO_LARGE";
+      throw error;
+    }
+
+    return {
+      ...image,
+      optimizationSkipped: "sharp_unavailable"
+    };
+  }
+
+  const inputBuffer = Buffer.from(image.base64, "base64");
+
+  try {
+    const metadata = await sharp(inputBuffer, {
+      failOn: "none",
+      limitInputPixels: MAX_INPUT_PIXELS
+    }).rotate().metadata();
+
+    const width = Number(metadata.width || 0);
+    const height = Number(metadata.height || 0);
+    const needsResize = Math.max(width, height) > MAX_OPENAI_IMAGE_SIDE;
+    const needsReencode = image.mimeType !== "image/jpeg" || image.sizeMb > TARGET_OPENAI_IMAGE_MB || needsResize;
+
+    if (!needsReencode) {
+      return {
+        ...image,
+        width,
+        height
+      };
+    }
+
+    let side = MAX_OPENAI_IMAGE_SIDE;
+    let quality = OPENAI_IMAGE_JPEG_QUALITY;
+    let outputBuffer = null;
+    let outputInfo = {};
+
+    for (let attempt = 0; attempt < 4; attempt += 1) {
+      const output = await sharp(inputBuffer, {
+        failOn: "none",
+        limitInputPixels: MAX_INPUT_PIXELS
+      })
+        .rotate()
+        .resize({
+          width: side,
+          height: side,
+          fit: "inside",
+          withoutEnlargement: true
+        })
+        .jpeg({
+          quality,
+          mozjpeg: true
+        })
+        .toBuffer({ resolveWithObject: true });
+      outputBuffer = output.data;
+      outputInfo = output.info || {};
+
+      if (bytesToMb(outputBuffer.length) <= TARGET_OPENAI_IMAGE_MB || side <= 840) break;
+      side = Math.max(840, Math.round(side * 0.84));
+      quality = Math.max(70, quality - 3);
+    }
+
+    return {
+      dataUrl: bufferToDataUrl(outputBuffer, "image/jpeg"),
+      mimeType: "image/jpeg",
+      base64: outputBuffer.toString("base64"),
+      bytes: outputBuffer.length,
+      sizeMb: bytesToMb(outputBuffer.length),
+      originalBytes: image.originalBytes,
+      originalSizeMb: image.originalSizeMb,
+      width: Number(outputInfo.width || 0),
+      height: Number(outputInfo.height || 0),
+      optimized: true
+    };
+  } catch (error) {
+    console.warn("[SACLO][image optimization skipped]", {
+      message: error?.message,
+      mimeType: image.mimeType,
+      imageMb: roundNumber(image.sizeMb)
+    });
+    return {
+      ...image,
+      optimizationSkipped: "optimizer_error"
+    };
+  }
 }
 
 function requireApiKey() {
@@ -426,6 +582,20 @@ function requireApiKey() {
     error.code = "MISSING_OPENAI_API_KEY";
     throw error;
   }
+}
+
+async function getSharp() {
+  if (!sharpImportPromise) {
+    sharpImportPromise = import("sharp")
+      .then(module => module.default || module)
+      .catch(error => {
+        console.warn("[SACLO][image optimizer unavailable]", {
+          message: error?.message
+        });
+        return null;
+      });
+  }
+  return sharpImportPromise;
 }
 
 async function createOpenAIResponse(params) {
@@ -468,6 +638,28 @@ function hashPayload(value) {
   return createHash("sha256").update(String(value)).digest("hex").slice(0, 20);
 }
 
+function logAnalysisResult({ endpoint, startedAt, image, detectedItems, cached }) {
+  console.log("[SACLO][analysis result]", {
+    endpoint,
+    model: MODEL,
+    durationMs: Date.now() - startedAt,
+    image: imageLogSummary(image),
+    detectedItems,
+    cached
+  });
+}
+
+function imageLogSummary(image) {
+  return {
+    mb: roundNumber(image.sizeMb),
+    originalMb: roundNumber(image.originalSizeMb),
+    mimeType: image.mimeType,
+    dimensions: image.width && image.height ? `${image.width}x${image.height}` : "unknown",
+    optimized: Boolean(image.optimized),
+    optimizationSkipped: image.optimizationSkipped || undefined
+  };
+}
+
 function logOpenAIError(error, context = {}) {
   console.error("[SACLO][OpenAI error]", {
     context,
@@ -500,6 +692,75 @@ function serializeOpenAIError(error) {
   };
 }
 
+function bufferToDataUrl(buffer, mimeType) {
+  return `data:${mimeType};base64,${buffer.toString("base64")}`;
+}
+
+function readImageDimensions(buffer, mimeType) {
+  if (mimeType === "image/png" && buffer.length >= 24) {
+    return {
+      width: buffer.readUInt32BE(16),
+      height: buffer.readUInt32BE(20)
+    };
+  }
+
+  if (mimeType === "image/jpeg" && buffer.length >= 4) {
+    return readJpegDimensions(buffer);
+  }
+
+  return { width: 0, height: 0 };
+}
+
+function readJpegDimensions(buffer) {
+  let offset = 2;
+  while (offset < buffer.length - 9) {
+    if (buffer[offset] !== 0xff) {
+      offset += 1;
+      continue;
+    }
+
+    const marker = buffer[offset + 1];
+    const length = buffer.readUInt16BE(offset + 2);
+    if (isJpegStartOfFrame(marker)) {
+      return {
+        height: buffer.readUInt16BE(offset + 5),
+        width: buffer.readUInt16BE(offset + 7)
+      };
+    }
+
+    if (!length || length < 2) break;
+    offset += 2 + length;
+  }
+
+  return { width: 0, height: 0 };
+}
+
+function isJpegStartOfFrame(marker) {
+  return [
+    0xc0,
+    0xc1,
+    0xc2,
+    0xc3,
+    0xc5,
+    0xc6,
+    0xc7,
+    0xc9,
+    0xca,
+    0xcb,
+    0xcd,
+    0xce,
+    0xcf
+  ].includes(marker);
+}
+
+function bytesToMb(bytes) {
+  return bytes / (1024 * 1024);
+}
+
+function roundNumber(value) {
+  return Math.round((Number(value) || 0) * 100) / 100;
+}
+
 function asyncHandler(handler) {
   return (request, response, next) => Promise.resolve(handler(request, response, next)).catch(next);
 }
@@ -523,4 +784,8 @@ function getAllowedOrigin() {
 function clamp(value, min, max) {
   if (!Number.isFinite(value)) return min;
   return Math.min(Math.max(value, min), max);
+}
+
+function clampInteger(value, min, max) {
+  return Math.round(clamp(value, min, max));
 }

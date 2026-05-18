@@ -9,8 +9,9 @@ SACLO es un asistente inteligente de armario y outfits con IA. Convierte tu arma
 - Armario visual guardado en `localStorage`, sin login ni base de datos todavía.
 - Alta rápida de prendas con foto, nombre sugerido desde archivo y color calculado localmente.
 - Análisis inteligente conectado por defecto al servicio online.
-- Revisión asistida: la IA propone datos, muestra confianza y el usuario corrige antes de guardar.
-- Creación de prendas desde una foto del armario con selección asistida como alternativa.
+- Revisión asistida: el análisis propone datos, muestra confianza y el usuario corrige antes de guardar.
+- Digitalización de armario por zonas: camisetas, pantalones, chaquetas, zapatillas o accesorios.
+- Creación de prendas desde una zona del armario con selección asistida como alternativa.
 - Recomendador de outfits por ocasión, clima, temperatura, estilo, temporada, color y rotación de uso.
 - Home tipo app móvil con “Hoy en SACLO”, outfit del día, racha, prendas sin usar, último outfit usado, favoritos e historial visual.
 
@@ -20,8 +21,8 @@ La app publicada en `https://saclo.net` no muestra configuración técnica a usu
 
 - Puedes añadir prendas manualmente.
 - SACLO detecta color localmente con `canvas`.
-- Puedes analizar una prenda o detectar prendas desde una foto del armario.
-- Puedes crear prendas desde una foto del armario usando selección asistida.
+- Puedes analizar una prenda o detectar prendas visibles desde una zona del armario.
+- Puedes crear prendas desde una zona del armario usando selección asistida.
 - El armario, favoritos, outfits e historial se guardan en el navegador con `localStorage`.
 
 Para probar en local:
@@ -43,7 +44,7 @@ https://check-fit.onrender.com
 Para el usuario normal no hay campo de API, Render, OpenAI ni configuración interna. El flujo visible es:
 
 1. Subir foto.
-2. Analizar prenda o detectar prendas.
+2. Analizar prenda o detectar prendas visibles por zona.
 3. Revisar resultados.
 4. Guardar prendas.
 5. Crear outfit.
@@ -52,7 +53,7 @@ Si existía una configuración antigua con `localhost`, SACLO la borra automáti
 
 Los errores visibles son humanos y no exponen claves, modelos, proveedor ni detalles técnicos.
 
-Consejo para mejores resultados: buena luz, prenda separada y fondo claro. Si la confianza baja de 70%, SACLO marca `Revisar recomendado`.
+Consejo para mejores resultados: buena luz, prendas visibles y pocas piezas por foto. Para un armario completo, sube varias zonas: camisetas, pantalones, chaquetas, zapatillas y accesorios.
 
 ## Backend interno
 
@@ -74,7 +75,10 @@ OPENAI_API_KEY=tu_clave
 PORT=3000
 FRONTEND_ORIGIN=https://saclo.net
 OPENAI_VISION_MODEL=gpt-4.1-mini
-MAX_IMAGE_MB=6
+MAX_IMAGE_MB=4
+MAX_OPENAI_IMAGE_SIDE=1200
+OPENAI_IMAGE_JPEG_QUALITY=76
+TARGET_OPENAI_IMAGE_MB=2.2
 ```
 
 Endpoint de salud:
@@ -123,18 +127,18 @@ Recibe JSON:
 }
 ```
 
-Devuelve hasta 8 prendas claramente visibles y una nota de revisión. No debe inventar prendas cuando la imagen sea confusa.
+Devuelve hasta 8 prendas claramente visibles por imagen y una nota de revisión. No debe inventar prendas cuando la imagen sea confusa. Para digitalizar un armario completo se recomienda subir varias fotos por secciones.
 
 ## Mejoras recientes de UX
 
-- Loading premium con `Analizando prenda...` y `Detectando prendas...`.
+- Loading premium con `Analizando prenda...` y `Analizando zona...`.
 - Progreso visual en tres pasos: detección, color y preparación de resultados.
 - Compresión automática de imágenes antes del análisis: lado largo aproximado de 1200px y JPEG optimizado.
 - Caché de análisis en sesión para no repetir llamadas con la misma imagen.
 - Badge de confianza para resultados de análisis inteligente.
 - Aviso `Revisar recomendado` cuando la confianza baja de 70%.
 - Tarjetas independientes para prendas detectadas, editables antes de guardar.
-- Notas de la IA visibles en revisión asistida.
+- Notas de revisión visibles en revisión asistida.
 - Sección `Hoy en SACLO` con racha, prendas sin usar, último outfit usado y acceso rápido al look del día.
 - Historial con favoritos, fecha, ocasión, clima, marcado de uso y botón `Usar de nuevo`.
 - Outfit engine más estricto con paletas, ocasión, clima, favoritos, rotación semanal y prendas menos usadas.
@@ -163,9 +167,11 @@ La explicación intenta sonar como un stylist: breve, concreta y conectada con c
 
 ## Pipeline de análisis
 
-- Frontend: reduce la imagen en `canvas`, evita enviar fotos gigantes y reutiliza resultados repetidos durante la sesión.
-- Backend: usa respuestas estructuradas, timeout, caché temporal, logs de duración y validación contra duplicados.
+- Frontend: reduce la imagen en `canvas` a lado largo máximo `1200px`, JPEG `0.7-0.8`, evita fotos gigantes y reutiliza resultados repetidos durante la sesión.
+- Backend: usa respuestas estructuradas, timeout, caché temporal, reutilización de llamadas en curso, lectura de dimensiones, logs de duración/tamaño y validación contra duplicados.
+- Coste: el backend limita payload, compacta prompts/respuestas y puede reoptimizar imágenes a JPEG `1200px` cuando el optimizador está disponible.
 - Armario: prioriza prendas claramente visibles. Es mejor detectar pocas prendas fiables que muchas dudosas.
+- Flujo por zonas: SACLO está optimizado para detectar hasta 8 prendas claras por imagen; subir varias zonas mejora precisión, velocidad y control de costes.
 - Color: se pide color principal y color secundario opcional para reducir confusiones como negro/gris, beige/blanco o azul/negro.
 
 ## Arquitectura

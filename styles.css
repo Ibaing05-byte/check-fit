@@ -681,6 +681,25 @@ select option {
   gap: 7px;
 }
 
+.zone-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+}
+
+.zone-chips span {
+  min-height: 32px;
+  display: inline-grid;
+  place-items: center;
+  padding: 7px 10px;
+  border: 1px solid rgba(216, 195, 165, 0.2);
+  border-radius: 999px;
+  background: rgba(216, 195, 165, 0.08);
+  color: var(--ink);
+  font-size: 12px;
+  font-weight: 900;
+}
+
 .photo-tips span {
   min-height: 34px;
   display: grid;
@@ -1414,6 +1433,7 @@ select option {
   .form-grid,
   .outfit-controls,
   .wardrobe-tools,
+  .zone-chips,
   .section-heading.inline,
   .collection-bar,
   .result-head,
