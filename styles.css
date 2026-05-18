@@ -226,6 +226,20 @@ select option {
   overflow: hidden;
 }
 
+.has-wardrobe .hero-grid,
+.has-wardrobe .starter-guide,
+.has-wardrobe .onboarding {
+  display: none;
+}
+
+.has-wardrobe .app-hero {
+  min-height: 0;
+}
+
+.empty-wardrobe .home-dashboard {
+  display: none;
+}
+
 .hero-grid {
   display: grid;
   grid-template-columns: minmax(0, 1.1fr) minmax(280px, 0.55fr);
@@ -255,12 +269,26 @@ select option {
   letter-spacing: 0;
 }
 
+.hero-copy h2 {
+  margin: 8px 0 0;
+  font-size: clamp(26px, 5vw, 52px);
+  line-height: 1;
+}
+
 .hero-copy p:not(.eyebrow) {
   max-width: 670px;
   margin: 18px 0 0;
   color: rgba(248, 244, 236, 0.78);
   font-size: 18px;
   line-height: 1.55;
+}
+
+.hero-note {
+  display: block;
+  margin-top: 10px;
+  color: var(--hot);
+  font-size: 13px;
+  font-weight: 850;
 }
 
 .hero-actions {
@@ -484,6 +512,55 @@ select option {
   margin: 0;
   color: var(--muted);
   line-height: 1.45;
+}
+
+.phone-outfit-card {
+  display: grid;
+  gap: 5px;
+  padding: 12px;
+  border: 1px solid rgba(216, 195, 165, 0.2);
+  border-radius: 8px;
+  background: rgba(216, 195, 165, 0.08);
+}
+
+.phone-outfit-card span,
+.phone-outfit-card small {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.phone-outfit-card strong {
+  font-size: 18px;
+}
+
+.starter-guide {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 14px;
+  align-items: center;
+  margin-top: 18px;
+  padding: 16px;
+  border: 1px solid rgba(91, 140, 255, 0.24);
+  border-radius: 8px;
+  background:
+    linear-gradient(135deg, rgba(91, 140, 255, 0.12), rgba(216, 195, 165, 0.08)),
+    rgba(255, 255, 255, 0.04);
+}
+
+.starter-guide h2,
+.starter-guide p {
+  margin: 0;
+}
+
+.starter-guide p:not(.eyebrow) {
+  color: var(--muted);
+}
+
+.starter-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: end;
 }
 
 .onboarding {
@@ -1000,7 +1077,7 @@ select option {
 .draft-gallery:empty::before,
 .wardrobe-grid:empty::before,
 .history-list:empty::before {
-  content: "Listo para empezar. Añade una prenda y SACLO cobra vida.";
+  content: attr(data-empty-label);
   padding: 22px;
   border: 1px dashed var(--line);
   border-radius: 8px;
@@ -1009,7 +1086,7 @@ select option {
 }
 
 .history-list:empty::before {
-  content: "Guarda tu primer outfit para construir historial y mejorar la rotación.";
+  content: attr(data-empty-label);
 }
 
 .draft-gallery:empty::before {
@@ -1412,6 +1489,14 @@ select option {
     font-size: 44px;
   }
 
+  .starter-guide {
+    grid-template-columns: 1fr;
+  }
+
+  .starter-actions {
+    justify-content: start;
+  }
+
   .onboarding,
   .crop-guide,
   .outfit-controls,
@@ -1448,11 +1533,16 @@ select option {
     line-height: 1;
   }
 
+  .hero-copy h2 {
+    font-size: 28px;
+  }
+
   .hero-copy p:not(.eyebrow) {
     font-size: 15px;
   }
 
   .onboarding,
+  .starter-guide,
   .crop-guide,
   .photo-tips,
   .ai-panel,
@@ -1464,6 +1554,7 @@ select option {
   .collection-bar,
   .result-head,
   .quick-actions,
+  .starter-actions,
   .retention-grid {
     grid-template-columns: 1fr;
     display: grid;

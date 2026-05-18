@@ -929,12 +929,18 @@ function deleteHistoryOutfit(id) {
 }
 
 function renderAll() {
+  updateOnboardingMode();
   renderStats();
   renderDrafts();
   renderWardrobe();
   renderHistory();
   renderHero();
   renderHome();
+}
+
+function updateOnboardingMode() {
+  document.body.classList.toggle("has-wardrobe", wardrobe.length > 0);
+  document.body.classList.toggle("empty-wardrobe", wardrobe.length === 0);
 }
 
 function renderStats() {
@@ -970,6 +976,9 @@ function renderWardrobe() {
   renderColorFilter();
   const visible = filterWardrobe(wardrobe, filters);
   elements.wardrobe.innerHTML = "";
+  elements.wardrobe.dataset.emptyLabel = wardrobe.length
+    ? "No hay prendas con estos filtros."
+    : "Tu armario empieza aquí. Sube tus primeras prendas para que SACLO pueda crear looks.";
   visible.forEach(item => {
     elements.wardrobe.appendChild(renderWardrobeCard(item, {
       onEdit: editItem,
@@ -1012,6 +1021,9 @@ function renderCurrentOutfit() {
 
 function renderHistory() {
   const visible = historyFilter === "favorites" ? outfits.filter(outfit => outfit.favorite) : outfits;
+  elements.outfitHistory.dataset.emptyLabel = historyFilter === "favorites"
+    ? "Guarda tus looks favoritos. SACLO aprenderá qué estilos prefieres."
+    : "Aún no hay looks guardados. Genera tu primer outfit y márcalo como usado.";
   elements.outfitCount.textContent = visible.length;
   elements.historyAllFilter.classList.toggle("primary", historyFilter === "all");
   elements.historyAllFilter.classList.toggle("ghost", historyFilter !== "all");
@@ -1273,7 +1285,9 @@ function renderForgottenRack(items) {
   elements.forgottenRack.innerHTML = "";
   if (!items.length) {
     const empty = document.createElement("p");
-    empty.textContent = "Tu rotación está equilibrada. Buen momento para guardar un favorito nuevo.";
+    empty.textContent = wardrobe.length
+      ? "Aún no hay prendas olvidadas. Cuando uses SACLO más días, detectaremos qué piezas rescatar."
+      : "Cuando añadas prendas, SACLO te ayudará a rotarlas mejor.";
     elements.forgottenRack.appendChild(empty);
     return;
   }
