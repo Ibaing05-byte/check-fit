@@ -1148,15 +1148,19 @@ function generateDailyAlternative() {
 
 function getDailyLookName(outfit, context) {
   if (!outfit?.pieces?.length) return "Tu look está esperando";
-  if (outfit.vibe === "casual clean") return "Casual clean para hoy";
-  if (outfit.vibe === "smart casual") return context.temperature >= 20 ? "Smart casual ligero" : "Smart casual para hoy";
-  if (outfit.vibe === "streetwear relaxed") return "Streetwear relajado";
-  if (outfit.vibe === "minimal premium") return "Minimal premium";
-  if (outfit.vibe === "university fit") return "Look cómodo de diario";
-  if (outfit.vibe === "rainy day") return "Rainy day listo";
-  if (outfit.vibe === "winter layered") return "Winter layered";
-  if (outfit.vibe === "summer basic") return "Summer basic";
-  return outfit.vibe || createOutfitTitle(context);
+  const vibe = String(outfit.vibeKey || outfit.vibe || "").toLowerCase();
+  if (vibe === "casual clean" || vibe === "casual limpio") return "Casual limpio para hoy";
+  if (vibe === "smart casual" || vibe === "casual elegante") return context.temperature >= 20 ? "Casual elegante ligero" : "Casual elegante";
+  if (vibe === "streetwear relaxed" || vibe === "streetwear relajado") return "Streetwear relajado";
+  if (vibe === "minimal premium") return "Minimal premium";
+  if (vibe === "sport casual" || vibe === "deportivo casual") return "Deportivo casual";
+  if (vibe === "night out" || vibe === "look de noche") return "Look de noche";
+  if (vibe === "university fit" || vibe === "look de clase") return "Look cómodo de diario";
+  if (vibe === "office fit" || vibe === "look de oficina") return "Look de oficina";
+  if (vibe === "rainy day" || vibe === "día de lluvia") return "Día de lluvia";
+  if (vibe === "winter layered" || vibe === "look con capas") return "Look con capas";
+  if (vibe === "summer basic" || vibe === "básico de verano") return "Básico de verano";
+  return formatVibeName(outfit.vibe) || createOutfitTitle(context);
 }
 
 function getDailyMessage(context, outfit, profile) {
@@ -1165,7 +1169,9 @@ function getDailyMessage(context, outfit, profile) {
   const forgotten = pieces.find(item => !item.usageCount || !item.lastUsedAt);
   const palette = outfit.palette?.label || "paleta cuidada";
   const lastWorn = getLastWornOutfit();
-  if (lastWorn?.vibe && lastWorn.vibe !== outfit.vibe) return `Ayer tiraste más a ${lastWorn.vibe}; hoy puedes variar con ${outfit.vibe}.`;
+  const currentVibe = formatVibeName(outfit.vibe || outfit.vibeKey);
+  const previousVibe = formatVibeName(lastWorn?.vibe);
+  if (previousVibe && currentVibe && previousVibe !== currentVibe) return `Ayer tiraste más a ${previousVibe}; hoy puedes variar con ${currentVibe}.`;
   if (context.climate === "lluvia") return "Hoy pide un look práctico: capa clara, calzado cerrado y una paleta fácil.";
   if (context.temperature <= 12) return "Buen día para un look con capas. Que abrigue sin perder forma.";
   if (context.temperature >= 26) return "Hoy encaja un fit ligero, limpio y sin capas de más.";
@@ -1173,6 +1179,24 @@ function getDailyMessage(context, outfit, profile) {
   if (profile.favoriteColors?.length) return `Te propongo ${palette}, cerca de los colores que más repites.`;
   if (context.occasion === "clase") return hasLayer ? "Hoy pide un look cómodo y limpio para clase, con una capa fácil." : "Hoy pide un look cómodo y limpio para clase.";
   return outfit.advice?.[0] || "Tu armario tiene potencial para un fit más cuidado hoy.";
+}
+
+function formatVibeName(value = "") {
+  const normalized = String(value || "").trim().toLowerCase();
+  const labels = {
+    "casual clean": "casual limpio",
+    "streetwear relaxed": "streetwear relajado",
+    "smart casual": "casual elegante",
+    "minimal premium": "minimal premium",
+    "sport casual": "deportivo casual",
+    "night out": "look de noche",
+    "university fit": "look de clase",
+    "office fit": "look de oficina",
+    "rainy day": "día de lluvia",
+    "summer basic": "básico de verano",
+    "winter layered": "look con capas"
+  };
+  return labels[normalized] || normalized;
 }
 
 function getConfidenceLabel(confidence) {

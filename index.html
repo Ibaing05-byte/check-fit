@@ -23,7 +23,7 @@
           <img class="brand-logo" src="assets/app-icon-saclo.png" alt="SACLO" />
           <span class="brand-mark">SACLO</span>
         </a>
-        <span class="beta-pill">Fashion-tech</span>
+        <span class="beta-pill">Estilo inteligente</span>
       </nav>
       <section class="hero-grid">
         <div class="hero-copy">
@@ -46,7 +46,7 @@
           <div class="look-stack" id="heroLookStack"></div>
           <div class="phone-outfit-card">
             <span>Clase · frío</span>
-            <strong>Casual clean</strong>
+            <strong>Casual limpio</strong>
             <small>Base neutra, capa cómoda y calzado fácil.</small>
           </div>
           <p>Looks según clima, ocasión y estilo.</p>
@@ -76,45 +76,44 @@
           <div class="quick-actions">
             <button id="dailyCreateButton" class="primary" type="button">Usar este look</button>
             <button id="dailyAnotherButton" class="secondary" type="button">Generar otro</button>
-            <a class="button-link secondary" href="#capture">Añadir prenda</a>
+          </div>
+        </article>
+
+        <article class="home-quick-card">
+          <p class="eyebrow">Accesos rápidos</p>
+          <div class="quick-access-grid">
+            <a class="quick-access-card" href="#capture">
+              <span class="quick-icon">+</span>
+              <strong>Añadir prenda</strong>
+              <small>Sube una foto</small>
+            </a>
+            <a class="quick-access-card" href="#capture">
+              <span class="quick-icon green">□</span>
+              <strong>Digitalizar por zonas</strong>
+              <small>Sube una zona</small>
+            </a>
           </div>
         </article>
 
         <article class="retention-card">
           <p class="eyebrow">Tu ritmo</p>
           <div class="retention-grid">
-            <span><strong id="streakCount">0</strong> racha</span>
-            <span><strong id="activeDaysCount">0</strong> días</span>
-            <span><strong id="generatedCount">0</strong> looks</span>
+            <span><i class="metric-icon blue"></i><strong id="streakCount">0</strong><small>días de racha</small></span>
+            <span><i class="metric-icon purple"></i><strong id="generatedCount">0</strong><small>looks creados</small></span>
+            <span><i class="metric-icon green"></i><strong id="homeWardrobeCount">0</strong><small>prendas</small></span>
+            <span><i class="metric-icon gold"></i><strong id="favoriteOutfitCount">0</strong><small>favoritos</small></span>
           </div>
           <p id="dailyInsight">Tienes prendas listas para construir tu próximo look.</p>
           <div id="forgottenRack" class="forgotten-rack" aria-label="Prendas olvidadas"></div>
           <p id="lastWornOutfit" class="last-worn">Último outfit usado: todavía no hay registro.</p>
         </article>
 
-        <article class="mini-stats-card">
-          <p class="eyebrow">Armario</p>
-          <div class="mini-stat-line">
-            <span>Prendas</span>
-            <strong id="homeWardrobeCount">0</strong>
-          </div>
-          <div class="mini-stat-line">
-            <span>Sin usar</span>
-            <strong id="unusedItemsCount">0</strong>
-          </div>
-          <div class="mini-stat-line">
-            <span>Favoritos</span>
-            <strong id="favoriteOutfitCount">0</strong>
-          </div>
-          <div class="mini-stat-line">
-            <span>Usados</span>
-            <strong id="usedOutfitCount">0</strong>
-          </div>
-          <div class="mini-stat-line">
-            <span>Prendas fav</span>
-            <strong id="favoriteItemCount">0</strong>
-          </div>
-        </article>
+        <div class="home-hidden-stats" hidden>
+          <span id="activeDaysCount">0</span>
+          <span id="unusedItemsCount">0</span>
+          <span id="usedOutfitCount">0</span>
+          <span id="favoriteItemCount">0</span>
+        </div>
       </section>
     </header>
 

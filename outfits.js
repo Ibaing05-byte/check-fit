@@ -2,22 +2,22 @@ import { CLASHING_COLORS, COMPATIBLE_COLORS, GROUP_LABELS, STYLE_TARGETS, TYPE_G
 
 const VIBE_PROFILES = {
   "casual clean": {
-    label: "casual clean",
+    label: "casual limpio",
     styles: ["casual", "minimalista"],
     paletteBias: ["neutral", "soft"],
     copy: "casual limpio"
   },
   "streetwear relaxed": {
-    label: "streetwear relaxed",
+    label: "streetwear relajado",
     styles: ["streetwear", "casual", "deportivo"],
     paletteBias: ["dark", "contrast", "neutral"],
     copy: "streetwear relajado"
   },
   "smart casual": {
-    label: "smart casual",
+    label: "casual elegante",
     styles: ["elegante", "minimalista", "casual"],
     paletteBias: ["neutral", "dark"],
-    copy: "smart casual"
+    copy: "casual elegante"
   },
   "minimal premium": {
     label: "minimal premium",
@@ -26,46 +26,46 @@ const VIBE_PROFILES = {
     copy: "minimal premium"
   },
   "sport casual": {
-    label: "sport casual",
+    label: "deportivo casual",
     styles: ["deportivo", "casual"],
     paletteBias: ["neutral", "contrast"],
-    copy: "sport casual"
+    copy: "deportivo casual"
   },
   "night out": {
-    label: "night out",
+    label: "look de noche",
     styles: ["elegante", "streetwear", "minimalista"],
     paletteBias: ["dark", "contrast"],
-    copy: "night out"
+    copy: "look de noche"
   },
   "university fit": {
-    label: "university fit",
+    label: "look de clase",
     styles: ["casual", "streetwear"],
     paletteBias: ["neutral", "soft"],
-    copy: "university fit"
+    copy: "look de clase"
   },
   "office fit": {
-    label: "office fit",
+    label: "look de oficina",
     styles: ["elegante", "minimalista", "formal"],
     paletteBias: ["neutral", "dark"],
-    copy: "office fit"
+    copy: "look de oficina"
   },
   "rainy day": {
-    label: "rainy day",
+    label: "día de lluvia",
     styles: ["casual", "minimalista", "streetwear"],
     paletteBias: ["dark", "neutral"],
-    copy: "rainy day"
+    copy: "día de lluvia"
   },
   "summer basic": {
-    label: "summer basic",
+    label: "básico de verano",
     styles: ["casual", "minimalista", "deportivo"],
     paletteBias: ["soft", "neutral"],
-    copy: "summer basic"
+    copy: "básico de verano"
   },
   "winter layered": {
-    label: "winter layered",
+    label: "look con capas",
     styles: ["casual", "streetwear", "minimalista"],
     paletteBias: ["dark", "neutral", "warm"],
-    copy: "winter layered"
+    copy: "look con capas"
   }
 };
 
@@ -148,7 +148,7 @@ export function renderHistoryItem(outfit, createImageElement, callbacks) {
   const meta = document.createElement("small");
   const date = outfit.createdAt ? new Date(outfit.createdAt).toLocaleDateString("es-ES", { day: "2-digit", month: "short" }) : "guardado";
   const context = outfit.context || {};
-  const vibe = outfit.vibe || context.vibe || "look";
+  const vibe = formatVibeName(outfit.vibe || context.vibe || "look");
   const palette = typeof outfit.palette === "string" ? outfit.palette : outfit.palette?.label;
   meta.textContent = `${date} · ${context.occasion || "look"} · ${context.climate || "clima libre"} · ${vibe}${outfit.wornAt ? " · usado" : ""}`;
   const note = document.createElement("p");
@@ -718,6 +718,24 @@ function normalizeVibeKey(value) {
   if (!normalized) return "";
   if (VIBE_PROFILES[normalized]) return normalized;
   return Object.entries(VIBE_PROFILES).find(([, profile]) => profile.label === normalized || profile.copy === normalized)?.[0] || "";
+}
+
+function formatVibeName(value = "") {
+  const normalized = String(value || "").trim().toLowerCase();
+  const labels = {
+    "casual clean": "casual limpio",
+    "streetwear relaxed": "streetwear relajado",
+    "smart casual": "casual elegante",
+    "minimal premium": "minimal premium",
+    "sport casual": "deportivo casual",
+    "night out": "look de noche",
+    "university fit": "look de clase",
+    "office fit": "look de oficina",
+    "rainy day": "día de lluvia",
+    "summer basic": "básico de verano",
+    "winter layered": "look con capas"
+  };
+  return labels[normalized] || normalized;
 }
 
 function normalizeColor(color) {

@@ -332,13 +332,13 @@ function placeholder(item) {
     <svg xmlns="http://www.w3.org/2000/svg" width="720" height="900" viewBox="0 0 720 900">
       <defs>
         <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0" stop-color="#15151a"/>
-          <stop offset="1" stop-color="#28242f"/>
+          <stop offset="0" stop-color="#11141d"/>
+          <stop offset="1" stop-color="#1d2230"/>
         </linearGradient>
       </defs>
       <rect width="720" height="900" fill="url(#bg)"/>
-      <circle cx="360" cy="310" r="118" fill="#d7ff68" opacity="0.9"/>
-      <path d="M274 270h172l58 88-48 34-30-46v236H294V346l-30 46-48-34 58-88Z" fill="#f6f2e8"/>
+      <circle cx="360" cy="310" r="118" fill="#5b8cff" opacity="0.32"/>
+      <path d="M274 270h172l58 88-48 34-30-46v236H294V346l-30 46-48-34 58-88Z" fill="#f5f5f2" opacity="0.94"/>
       <text x="360" y="700" font-size="42" text-anchor="middle" font-family="Arial" font-weight="700" fill="#f6f2e8">${label}</text>
       <text x="360" y="750" font-size="24" text-anchor="middle" font-family="Arial" fill="#a8a8b3">${type} · ${color}</text>
     </svg>
