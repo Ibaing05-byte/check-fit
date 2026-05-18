@@ -119,6 +119,7 @@ export function normalizeWardrobeItem(data) {
     style: validOrDefault(data.style, STYLES, "casual"),
     season: validOrDefault(data.season, SEASONS, "entretiempo"),
     photo: data.photo || "",
+    favorite: Boolean(data.favorite),
     createdAt: normalizeTimestamp(data.createdAt, data.id),
     usageCount: Number(data.usageCount ?? data.timesRecommended ?? 0),
     lastUsedAt: Number(data.lastUsedAt ?? data.lastRecommendedAt ?? 0)
@@ -149,9 +150,21 @@ export function normalizeOutfitRecord(data) {
     pieceIds: Array.isArray(data.pieceIds) ? data.pieceIds : [],
     context: data.context || {},
     explanation: data.explanation || "",
+    vibe: String(data.vibe || data.context?.vibe || "").trim(),
+    palette: normalizePalette(data.palette),
+    advice: Array.isArray(data.advice) ? data.advice.map(item => String(item)).filter(Boolean).slice(0, 4) : [],
     favorite: Boolean(data.favorite),
     createdAt: normalizeTimestamp(data.createdAt, data.id),
     wornAt: Number(data.wornAt || 0)
+  };
+}
+
+function normalizePalette(value) {
+  if (typeof value === "string") return { key: value, label: value };
+  if (!value || typeof value !== "object") return { key: "", label: "" };
+  return {
+    key: String(value.key || "").trim(),
+    label: String(value.label || value.name || "").trim()
   };
 }
 

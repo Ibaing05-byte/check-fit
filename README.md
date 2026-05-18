@@ -138,6 +138,24 @@ Devuelve hasta 8 prendas claramente visibles y una nota de revisión. No debe in
 - Sección `Hoy en SACLO` con racha, prendas sin usar, último outfit usado y acceso rápido al look del día.
 - Historial con favoritos, fecha, ocasión, clima, marcado de uso y botón `Usar de nuevo`.
 - Outfit engine más estricto con paletas, ocasión, clima, favoritos, rotación semanal y prendas menos usadas.
+- Nuevo sistema de vibes: `casual clean`, `streetwear relaxed`, `smart casual`, `minimal premium`, `sport casual`, `night out`, `university fit`, `office fit`, `rainy day`, `summer basic` y `winter layered`.
+- “Hoy en SACLO” ahora actúa como companion diario: look accionable, variaciones, prendas olvidadas, consejos y señales de uso.
+- Favoritos de prendas y outfits usados como señal para futuras recomendaciones.
+- Historial inteligente con vibe, paleta, prendas usadas, favorito, usado, variación y eliminación.
+
+## Outfit Intelligence
+
+El motor local ya no decide solo por tipo de prenda. Ahora puntúa:
+
+- Rol del look: base, capa, calzado y accesorios.
+- Vibe objetivo según ocasión, clima, temperatura y estilo.
+- Paleta: `monochrome`, `neutral`, `contrast`, `soft`, `dark`, `warm` y `cold`.
+- Equilibrio entre básicos y prendas protagonistas.
+- Compatibilidad de estilos y colores.
+- Clima real: lluvia, frío, calor, viento, nublado y temperatura.
+- Historial: evita combinaciones recientes, rescata prendas olvidadas y mezcla favoritos con variedad.
+
+La explicación intenta sonar como un stylist: breve, concreta y conectada con clima, ocasión, paleta y uso real del armario.
 
 ## Pipeline de análisis
 

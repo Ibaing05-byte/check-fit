@@ -51,7 +51,8 @@
           <div id="dailyLookStack" class="daily-look-stack"></div>
           <p id="dailyMessage">Añade algunas prendas para desbloquear una recomendación diaria más precisa.</p>
           <div class="quick-actions">
-            <button id="dailyCreateButton" class="primary" type="button">Generar look de hoy</button>
+            <button id="dailyCreateButton" class="primary" type="button">Usar este look</button>
+            <button id="dailyAnotherButton" class="secondary" type="button">Generar otro</button>
             <a class="button-link secondary" href="#capture">Añadir prenda</a>
           </div>
         </article>
@@ -64,6 +65,7 @@
             <span><strong id="generatedCount">0</strong> looks</span>
           </div>
           <p id="dailyInsight">Tienes prendas listas para construir tu próximo look.</p>
+          <div id="forgottenRack" class="forgotten-rack" aria-label="Prendas olvidadas"></div>
           <p id="lastWornOutfit" class="last-worn">Último outfit usado: todavía no hay registro.</p>
         </article>
 
@@ -80,6 +82,14 @@
           <div class="mini-stat-line">
             <span>Favoritos</span>
             <strong id="favoriteOutfitCount">0</strong>
+          </div>
+          <div class="mini-stat-line">
+            <span>Usados</span>
+            <strong id="usedOutfitCount">0</strong>
+          </div>
+          <div class="mini-stat-line">
+            <span>Prendas fav</span>
+            <strong id="favoriteItemCount">0</strong>
           </div>
         </article>
       </section>
@@ -253,6 +263,7 @@
             </div>
             <div id="outfitPieces" class="outfit-grid"></div>
             <p id="explanation" class="explanation"></p>
+            <div id="outfitAdvice" class="advice-list"></div>
             <div class="result-actions">
               <button id="saveOutfitButton" class="primary" type="button">Guardar outfit</button>
               <button id="wearOutfitButton" class="secondary" type="button">Marcar como usado</button>
@@ -326,6 +337,7 @@
           <p id="wardrobeSummary" aria-live="polite"></p>
           <button id="clearWardrobe" class="ghost danger" type="button">Borrar armario</button>
         </div>
+        <p id="wardrobeInsight" class="status-note compact"></p>
         <div id="wardrobe" class="wardrobe-grid"></div>
       </section>
 
@@ -335,7 +347,11 @@
             <p class="eyebrow">Favoritos e historial</p>
             <h2>Últimos outfits</h2>
           </div>
-          <span id="outfitCount" class="count-pill">0</span>
+          <div class="inline-actions">
+            <button id="historyAllFilter" class="mini-button primary" type="button">Todos</button>
+            <button id="historyFavoriteFilter" class="mini-button ghost" type="button">Favoritos</button>
+            <span id="outfitCount" class="count-pill">0</span>
+          </div>
         </div>
         <div id="outfitHistory" class="history-list"></div>
       </section>

@@ -131,13 +131,14 @@ export function renderWardrobeCard(item, callbacks) {
 
   const usage = document.createElement("span");
   usage.className = "usage-pill";
-  usage.textContent = `${item.usageCount || 0} usos`;
+  usage.textContent = item.favorite ? "Favorita" : `${item.usageCount || 0} usos`;
 
   top.append(copy, usage);
 
   const actions = document.createElement("div");
   actions.className = "card-actions";
   actions.append(
+    createCardButton(item.favorite ? "Favorita" : "Favorito", () => callbacks.onFavorite(item.id), item.favorite ? "primary" : "ghost"),
     createCardButton("Editar", () => callbacks.onEdit(item.id)),
     createCardButton("Borrar", () => callbacks.onDelete(item.id), "danger")
   );

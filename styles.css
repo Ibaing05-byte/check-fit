@@ -353,6 +353,61 @@ select option {
   gap: 8px;
 }
 
+.quick-actions .button-link {
+  grid-column: 1 / -1;
+  text-align: center;
+}
+
+.forgotten-rack {
+  display: grid;
+  gap: 8px;
+}
+
+.forgotten-rack p {
+  padding: 11px;
+  border: 1px dashed var(--line);
+  border-radius: 8px;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.forgotten-item {
+  display: grid;
+  grid-template-columns: 46px minmax(0, 1fr);
+  gap: 10px;
+  align-items: center;
+  min-height: 58px;
+  padding: 8px;
+  border: 1px solid rgba(216, 195, 165, 0.18);
+  background: rgba(216, 195, 165, 0.07);
+  text-align: left;
+}
+
+.forgotten-item img {
+  width: 46px;
+  aspect-ratio: 1;
+  object-fit: cover;
+  border-radius: 8px;
+}
+
+.forgotten-item span {
+  display: grid;
+  gap: 2px;
+}
+
+.forgotten-item strong {
+  overflow: hidden;
+  color: var(--ink);
+  font-size: 13px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.forgotten-item small {
+  color: var(--muted);
+  font-size: 12px;
+}
+
 .retention-grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
@@ -1026,6 +1081,21 @@ select option {
   white-space: nowrap;
 }
 
+.role-pill,
+.history-tag {
+  display: inline-grid;
+  width: fit-content;
+  min-height: 24px;
+  place-items: center;
+  padding: 4px 8px;
+  border: 1px solid rgba(91, 140, 255, 0.24);
+  border-radius: 8px;
+  background: rgba(91, 140, 255, 0.1);
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 900;
+}
+
 .mini-button {
   min-height: 34px;
   padding: 7px 10px;
@@ -1055,6 +1125,24 @@ select option {
 
 .outfit-result[hidden] {
   display: none;
+}
+
+.advice-list {
+  display: grid;
+  gap: 8px;
+}
+
+.advice-list:empty {
+  display: none;
+}
+
+.advice-list span {
+  padding: 10px 11px;
+  border: 1px solid rgba(216, 195, 165, 0.2);
+  border-radius: 8px;
+  background: rgba(216, 195, 165, 0.08);
+  color: var(--muted);
+  line-height: 1.4;
 }
 
 .empty-state {
@@ -1098,6 +1186,18 @@ select option {
   line-height: 1.45;
   -webkit-line-clamp: 3;
   -webkit-box-orient: vertical;
+}
+
+.history-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.history-pieces {
+  padding-top: 8px;
+  border-top: 1px solid var(--line);
 }
 
 .edit-dialog {

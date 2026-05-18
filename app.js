@@ -54,14 +54,18 @@ const elements = {
   dailyLookStack: document.getElementById("dailyLookStack"),
   dailyMessage: document.getElementById("dailyMessage"),
   dailyCreateButton: document.getElementById("dailyCreateButton"),
+  dailyAnotherButton: document.getElementById("dailyAnotherButton"),
   streakCount: document.getElementById("streakCount"),
   activeDaysCount: document.getElementById("activeDaysCount"),
   generatedCount: document.getElementById("generatedCount"),
   dailyInsight: document.getElementById("dailyInsight"),
+  forgottenRack: document.getElementById("forgottenRack"),
   lastWornOutfit: document.getElementById("lastWornOutfit"),
   homeWardrobeCount: document.getElementById("homeWardrobeCount"),
   unusedItemsCount: document.getElementById("unusedItemsCount"),
   favoriteOutfitCount: document.getElementById("favoriteOutfitCount"),
+  usedOutfitCount: document.getElementById("usedOutfitCount"),
+  favoriteItemCount: document.getElementById("favoriteItemCount"),
   singleModeButton: document.getElementById("singleModeButton"),
   closetModeButton: document.getElementById("closetModeButton"),
   singleItemForm: document.getElementById("singleItemForm"),
@@ -117,10 +121,14 @@ const elements = {
   result: document.getElementById("result"),
   outfit: document.getElementById("outfitPieces"),
   explanation: document.getElementById("explanation"),
+  outfitAdvice: document.getElementById("outfitAdvice"),
   saveOutfitButton: document.getElementById("saveOutfitButton"),
   wearOutfitButton: document.getElementById("wearOutfitButton"),
   outfitHistory: document.getElementById("outfitHistory"),
   outfitCount: document.getElementById("outfitCount"),
+  historyAllFilter: document.getElementById("historyAllFilter"),
+  historyFavoriteFilter: document.getElementById("historyFavoriteFilter"),
+  wardrobeInsight: document.getElementById("wardrobeInsight"),
   editDialog: document.getElementById("editDialog"),
   editItemForm: document.getElementById("editItemForm"),
   closeEditDialog: document.getElementById("closeEditDialog"),
@@ -145,6 +153,9 @@ let closetImage = "";
 let cropArea = null;
 let dragState = null;
 let currentOutfit = null;
+let dailyOutfit = null;
+let dailyExcludeIds = [];
+let historyFilter = "all";
 let cropPreviewPhoto = "";
 let cropPreviewColor = "";
 let toastTimeout = 0;
@@ -202,10 +213,13 @@ function bindEvents() {
   elements.wardrobeSort.addEventListener("change", updateFiltersFromControls);
   elements.clearWardrobe.addEventListener("click", clearWardrobe);
   elements.recommendButton.addEventListener("click", () => generateOutfit());
-  elements.dailyCreateButton.addEventListener("click", () => generateOutfit({ scrollToResult: true, dailyContext: true }));
+  elements.dailyCreateButton.addEventListener("click", useDailyOutfit);
+  elements.dailyAnotherButton.addEventListener("click", generateDailyAlternative);
   elements.anotherOutfitButton.addEventListener("click", () => generateOutfit({ excludeCurrent: true }));
   elements.saveOutfitButton.addEventListener("click", saveCurrentOutfit);
   elements.wearOutfitButton.addEventListener("click", markCurrentOutfitUsed);
+  elements.historyAllFilter.addEventListener("click", () => setHistoryFilter("all"));
+  elements.historyFavoriteFilter.addEventListener("click", () => setHistoryFilter("favorites"));
   elements.editItemForm.addEventListener("submit", saveEditedItem);
   elements.closeEditDialog.addEventListener("click", () => elements.editDialog.close());
 }
@@ -628,6 +642,14 @@ function deleteItem(id) {
   showToast("Prenda eliminada.");
 }
 
+function toggleItemFavorite(id) {
+  wardrobe = wardrobe.map(item => item.id === id ? { ...item, favorite: !item.favorite } : item);
+  saveWardrobe(wardrobe);
+  renderAll();
+  const item = wardrobe.find(candidate => candidate.id === id);
+  showToast(item?.favorite ? "Prenda marcada como favorita." : "Prenda quitada de favoritos.");
+}
+
 function clearWardrobe() {
   if (!confirm("¿Seguro que quieres borrar tu armario local?")) return;
   wardrobe = [];
@@ -659,14 +681,13 @@ function generateOutfit(options = {}) {
     favoritePieceIds: getFavoritePieceIds()
   });
   currentOutfit.context = context;
-  currentOutfit.title = createOutfitTitle(context);
+  currentOutfit.title = createOutfitTitle({ ...context, vibe: currentOutfit.vibe });
   currentOutfit.savedId = "";
-  engagement = { ...engagement, generatedCount: engagement.generatedCount + 1 };
-  saveEngagement(engagement);
+  recordEngagementActivity({ generated: true });
   saveLastOutfitIds(getOutfitPieceIds(currentOutfit.pieces));
   renderCurrentOutfit();
   renderHome();
-  showStatus(elements.outfitFeedback, currentOutfit.pieces.length ? "Look generado con prendas reales de tu armario." : "Añade alguna prenda más para que el motor tenga margen.");
+  showStatus(elements.outfitFeedback, currentOutfit.pieces.length ? getResultMicrocopy(currentOutfit) : "Añade alguna prenda más para que SACLO tenga margen.");
 
   if (options.scrollToResult) {
     document.getElementById("outfitBuilder").scrollIntoView({ behavior: "smooth", block: "start" });
@@ -681,6 +702,9 @@ function saveCurrentOutfit() {
     pieceIds: getOutfitPieceIds(currentOutfit.pieces),
     context: currentOutfit.context,
     explanation: currentOutfit.explanation,
+    vibe: currentOutfit.vibe,
+    palette: currentOutfit.palette,
+    advice: currentOutfit.advice,
     favorite: true
   });
   outfits = [record, ...outfits.filter(item => item.id !== record.id)].slice(0, 12);
@@ -708,6 +732,9 @@ function markCurrentOutfitUsed() {
       pieceIds,
       context: currentOutfit.context,
       explanation: currentOutfit.explanation,
+      vibe: currentOutfit.vibe,
+      palette: currentOutfit.palette,
+      advice: currentOutfit.advice,
       wornAt
     });
     outfits = [record, ...outfits].slice(0, 12);
@@ -716,6 +743,7 @@ function markCurrentOutfitUsed() {
 
   saveWardrobe(wardrobe);
   saveOutfits(outfits);
+  recordEngagementActivity();
   elements.wearOutfitButton.disabled = true;
   elements.wearOutfitButton.textContent = "Marcado como usado";
   renderAll();
@@ -730,6 +758,7 @@ function markHistoryOutfitUsed(id) {
   outfits = outfits.map(candidate => candidate.id === id ? { ...candidate, wornAt: Date.now() } : candidate);
   saveWardrobe(wardrobe);
   saveOutfits(outfits);
+  recordEngagementActivity();
   renderAll();
   showToast("Outfit marcado como usado.");
 }
@@ -739,6 +768,11 @@ function toggleHistoryFavorite(id) {
   saveOutfits(outfits);
   renderAll();
   showToast(outfits.find(candidate => candidate.id === id)?.favorite ? "Outfit añadido a favoritos." : "Outfit quitado de favoritos.");
+}
+
+function setHistoryFilter(filter) {
+  historyFilter = filter;
+  renderHistory();
 }
 
 function reuseHistoryOutfit(id) {
@@ -751,12 +785,43 @@ function reuseHistoryOutfit(id) {
     explanation: outfit.explanation,
     context: outfit.context || getDailyContext(),
     title: outfit.title || "Outfit guardado",
+    vibe: outfit.vibe,
+    palette: outfit.palette,
+    advice: outfit.advice || [],
     savedId: outfit.id
   };
 
   renderCurrentOutfit();
   document.getElementById("outfitBuilder").scrollIntoView({ behavior: "smooth", block: "start" });
   showToast("Outfit recuperado. Puedes usarlo de nuevo hoy.");
+}
+
+function generateHistoryVariation(id) {
+  const outfit = outfits.find(candidate => candidate.id === id);
+  if (!outfit) return;
+
+  const context = outfit.context || getDailyContext();
+  currentOutfit = recommendOutfit(wardrobe, context, {
+    excludeIds: outfit.pieceIds || [],
+    recentOutfits: getRecentWeeklyOutfits(),
+    favoritePieceIds: getFavoritePieceIds()
+  });
+  currentOutfit.context = context;
+  currentOutfit.title = createOutfitTitle({ ...context, vibe: currentOutfit.vibe });
+  currentOutfit.savedId = "";
+  recordEngagementActivity({ generated: true });
+  saveLastOutfitIds(getOutfitPieceIds(currentOutfit.pieces));
+  renderCurrentOutfit();
+  renderHome();
+  document.getElementById("outfitBuilder").scrollIntoView({ behavior: "smooth", block: "start" });
+  showToast("Variación generada con la misma intención.");
+}
+
+function deleteHistoryOutfit(id) {
+  outfits = outfits.filter(outfit => outfit.id !== id);
+  saveOutfits(outfits);
+  renderAll();
+  showToast("Outfit eliminado del historial.");
 }
 
 function renderAll() {
@@ -778,6 +843,8 @@ function renderStats() {
   elements.homeWardrobeCount.textContent = wardrobe.length;
   elements.unusedItemsCount.textContent = wardrobe.filter(item => !item.usageCount).length;
   elements.favoriteOutfitCount.textContent = outfits.filter(outfit => outfit.favorite).length;
+  elements.usedOutfitCount.textContent = outfits.filter(outfit => outfit.wornAt).length;
+  elements.favoriteItemCount.textContent = wardrobe.filter(item => item.favorite).length;
   elements.generatedCount.textContent = engagement.generatedCount;
   elements.activeDaysCount.textContent = engagement.activeDays.length;
   elements.streakCount.textContent = getStreak(engagement.activeDays);
@@ -801,10 +868,12 @@ function renderWardrobe() {
   visible.forEach(item => {
     elements.wardrobe.appendChild(renderWardrobeCard(item, {
       onEdit: editItem,
-      onDelete: deleteItem
+      onDelete: deleteItem,
+      onFavorite: toggleItemFavorite
     }));
   });
   updateWardrobeSummary(elements.wardrobeSummary, visible.length, wardrobe.length);
+  renderWardrobeInsight();
 }
 
 function renderColorFilter() {
@@ -827,6 +896,7 @@ function renderCurrentOutfit() {
   }
 
   elements.explanation.textContent = currentOutfit?.explanation || "";
+  renderAdvice(elements.outfitAdvice, currentOutfit?.advice || []);
   elements.result.hidden = false;
   elements.saveOutfitButton.disabled = !currentOutfit?.pieces.length;
   elements.saveOutfitButton.textContent = "Guardar outfit";
@@ -836,13 +906,20 @@ function renderCurrentOutfit() {
 }
 
 function renderHistory() {
-  elements.outfitCount.textContent = outfits.length;
+  const visible = historyFilter === "favorites" ? outfits.filter(outfit => outfit.favorite) : outfits;
+  elements.outfitCount.textContent = visible.length;
+  elements.historyAllFilter.classList.toggle("primary", historyFilter === "all");
+  elements.historyAllFilter.classList.toggle("ghost", historyFilter !== "all");
+  elements.historyFavoriteFilter.classList.toggle("primary", historyFilter === "favorites");
+  elements.historyFavoriteFilter.classList.toggle("ghost", historyFilter !== "favorites");
   elements.outfitHistory.innerHTML = "";
-  outfits.slice(0, 8).forEach(outfit => {
+  visible.slice(0, 10).forEach(outfit => {
     elements.outfitHistory.appendChild(renderHistoryItem(outfit, createImageElement, {
       onWear: markHistoryOutfitUsed,
       onFavorite: toggleHistoryFavorite,
-      onReuse: reuseHistoryOutfit
+      onReuse: reuseHistoryOutfit,
+      onVariation: generateHistoryVariation,
+      onDelete: deleteHistoryOutfit
     }));
   });
 }
@@ -860,34 +937,38 @@ function renderHero() {
 
 function renderHome() {
   const dailyContext = getDailyContext();
-  const dailyOutfit = wardrobe.length
+  dailyOutfit = wardrobe.length
     ? recommendOutfit(wardrobe, dailyContext, {
-      excludeIds: readLastOutfitIds(),
+      excludeIds: [...new Set([...readLastOutfitIds(), ...dailyExcludeIds])],
       recentOutfits: getRecentWeeklyOutfits(),
       favoritePieceIds: getFavoritePieceIds()
     })
     : { pieces: [] };
 
-  elements.dailyTitle.textContent = dailyOutfit.pieces.length ? createOutfitTitle(dailyContext) : "Tu look está esperando";
+  elements.dailyTitle.textContent = dailyOutfit.pieces.length ? dailyOutfit.vibe || createOutfitTitle(dailyContext) : "Tu look está esperando";
   elements.dailyLookStack.innerHTML = "";
   dailyOutfit.pieces.slice(0, 4).forEach(item => elements.dailyLookStack.appendChild(createImageElement(item)));
+  elements.dailyCreateButton.disabled = !dailyOutfit.pieces.length;
+  elements.dailyAnotherButton.disabled = !dailyOutfit.pieces.length;
 
   if (!dailyOutfit.pieces.length) {
-    elements.dailyMessage.textContent = "Añade prendas de arriba, abajo y calzado para activar el outfit del día.";
+    elements.dailyMessage.textContent = "Añade base, calzado y una capa para que SACLO empiece a proponerte fits útiles.";
   } else {
-    elements.dailyMessage.textContent = getDailyMessage(dailyContext, dailyOutfit.pieces);
+    elements.dailyMessage.textContent = getDailyMessage(dailyContext, dailyOutfit);
   }
 
-  const unused = wardrobe.filter(item => !item.usageCount).length;
+  const forgotten = getForgottenItems();
+  renderForgottenRack(forgotten);
+  const unused = forgotten.length;
   const favoriteCount = outfits.filter(outfit => outfit.favorite).length;
   const lastWorn = [...outfits]
     .filter(outfit => outfit.wornAt)
     .sort((a, b) => b.wornAt - a.wornAt)[0];
   elements.dailyInsight.textContent = unused
-    ? `Tienes ${unused} prendas que aún no has usado. Buen momento para rotarlas.`
+    ? `Tienes ${unused} prendas olvidadas. Hoy puedes rescatar una sin cambiar todo tu estilo.`
     : favoriteCount
       ? `Tus favoritos ya están creando un mapa claro de tu estilo.`
-      : "Guarda tus mejores looks para que el historial empiece a trabajar contigo.";
+      : getDailyWardrobeHint();
   elements.lastWornOutfit.textContent = lastWorn
     ? `Último outfit usado: ${lastWorn.title} · ${formatRelativeDay(lastWorn.wornAt)}`
     : "Último outfit usado: todavía no hay registro.";
@@ -905,10 +986,49 @@ function getDailyContext() {
   };
 }
 
-function getDailyMessage(context, pieces) {
+function useDailyOutfit() {
+  if (!dailyOutfit?.pieces?.length) {
+    document.getElementById("capture").scrollIntoView({ behavior: "smooth", block: "start" });
+    return;
+  }
+
+  const context = getDailyContext();
+  currentOutfit = {
+    ...dailyOutfit,
+    context,
+    title: createOutfitTitle({ ...context, vibe: dailyOutfit.vibe }),
+    savedId: ""
+  };
+  recordEngagementActivity({ generated: true });
+  saveLastOutfitIds(getOutfitPieceIds(currentOutfit.pieces));
+  renderCurrentOutfit();
+  renderHome();
+  document.getElementById("outfitBuilder").scrollIntoView({ behavior: "smooth", block: "start" });
+  showToast("Look del día listo para usar.");
+}
+
+function generateDailyAlternative() {
+  if (!dailyOutfit?.pieces?.length) {
+    document.getElementById("capture").scrollIntoView({ behavior: "smooth", block: "start" });
+    return;
+  }
+
+  dailyExcludeIds = getOutfitPieceIds(dailyOutfit.pieces);
+  recordEngagementActivity({ generated: true });
+  renderHome();
+  showToast("Nueva propuesta preparada para hoy.");
+}
+
+function getDailyMessage(context, outfit) {
+  const pieces = outfit.pieces || [];
   const hasLayer = pieces.some(item => ["jersey", "sudadera", "chaqueta", "cazadora", "abrigo"].includes(item.type));
-  if (context.occasion === "clase") return hasLayer ? "Hoy toca un look cómodo para clase, con una capa fácil por si baja la temperatura." : "Hoy toca un look cómodo para clase, rápido y fácil de llevar.";
-  return "Te dejo una opción equilibrada para moverte sin pensar demasiado en la combinación.";
+  const forgotten = pieces.find(item => !item.usageCount || !item.lastUsedAt);
+  if (context.climate === "lluvia") return "Hoy pide un look práctico: capa clara, calzado cerrado y una paleta fácil.";
+  if (context.temperature <= 12) return "Buen día para un look con capas. Que abrigue sin perder forma.";
+  if (context.temperature >= 26) return "Hoy encaja un fit ligero, limpio y sin capas de más.";
+  if (forgotten) return `Tienes una prenda olvidada que puede salvar el outfit: ${forgotten.name}.`;
+  if (context.occasion === "clase") return hasLayer ? "Hoy pide un look cómodo y limpio para clase, con una capa fácil." : "Hoy pide un look cómodo y limpio para clase.";
+  return outfit.advice?.[0] || "Tu armario tiene potencial para un fit más cuidado hoy.";
 }
 
 function getConfidenceLabel(confidence) {
@@ -939,7 +1059,103 @@ function getRecentWeeklyOutfits() {
 function getFavoritePieceIds() {
   return [...new Set(outfits
     .filter(outfit => outfit.favorite)
-    .flatMap(outfit => outfit.pieceIds || []))];
+    .flatMap(outfit => outfit.pieceIds || [])
+    .concat(wardrobe.filter(item => item.favorite).map(item => item.id)))];
+}
+
+function getForgottenItems(limit = 3) {
+  const now = Date.now();
+  return [...wardrobe]
+    .map(item => ({
+      item,
+      score: !item.usageCount
+        ? 100
+        : item.lastUsedAt
+          ? Math.min(90, Math.floor((now - item.lastUsedAt) / (1000 * 60 * 60 * 24)))
+          : 55 - item.usageCount
+    }))
+    .filter(entry => entry.score >= 14)
+    .sort((a, b) => b.score - a.score || (a.item.usageCount || 0) - (b.item.usageCount || 0))
+    .slice(0, limit)
+    .map(entry => entry.item);
+}
+
+function renderForgottenRack(items) {
+  elements.forgottenRack.innerHTML = "";
+  if (!items.length) {
+    const empty = document.createElement("p");
+    empty.textContent = "Tu rotación está equilibrada. Buen momento para guardar un favorito nuevo.";
+    elements.forgottenRack.appendChild(empty);
+    return;
+  }
+
+  items.forEach(item => {
+    const card = document.createElement("button");
+    card.type = "button";
+    card.className = "forgotten-item";
+    card.appendChild(createImageElement(item));
+    const copy = document.createElement("span");
+    copy.innerHTML = `<strong>${escapeHtml(item.name)}</strong><small>${item.type} · ${item.color || "sin color"}</small>`;
+    card.appendChild(copy);
+    card.addEventListener("click", () => {
+      filters = { ...filters, search: item.name, type: "todos", style: "todos", season: "todos", color: "todos" };
+      saveFilters(filters);
+      elements.wardrobeSearch.value = filters.search;
+      elements.wardrobeTypeFilter.value = filters.type;
+      elements.wardrobeStyleFilter.value = filters.style;
+      elements.wardrobeSeasonFilter.value = filters.season;
+      elements.wardrobeColorFilter.value = filters.color;
+      renderWardrobe();
+      document.getElementById("wardrobeSection").scrollIntoView({ behavior: "smooth", block: "start" });
+    });
+    elements.forgottenRack.appendChild(card);
+  });
+}
+
+function getDailyWardrobeHint() {
+  const basicCount = wardrobe.filter(item => ["camiseta", "camisa", "vaqueros", "pantalón", "zapatillas"].includes(item.type)).length;
+  if (basicCount >= Math.max(3, Math.round(wardrobe.length * 0.55))) return "Tu armario tiene muchos básicos: úsalo a favor con una paleta más neutra.";
+  if (!wardrobe.some(item => ["chaqueta", "cazadora", "abrigo", "sudadera", "jersey"].includes(item.type))) return "Te falta una capa para días fríos.";
+  if (!wardrobe.some(item => ["zapatillas", "zapatos", "botas", "sandalias"].includes(item.type))) return "El siguiente salto está claro: añade calzado para cerrar mejor los looks.";
+  return "Guarda tus mejores looks para que SACLO aprenda qué te apetece repetir.";
+}
+
+function renderWardrobeInsight() {
+  if (!wardrobe.length) {
+    elements.wardrobeInsight.textContent = "Empieza con 5 prendas reales: base, pantalón, calzado, capa y una pieza con personalidad.";
+    return;
+  }
+  const forgotten = getForgottenItems(1)[0];
+  if (forgotten) {
+    elements.wardrobeInsight.textContent = `Recomendación rápida: rescata ${forgotten.name}. Lleva tiempo esperando su turno.`;
+    return;
+  }
+  elements.wardrobeInsight.textContent = getDailyWardrobeHint();
+}
+
+function renderAdvice(node, advice = []) {
+  node.innerHTML = "";
+  advice.slice(0, 3).forEach(item => {
+    const pill = document.createElement("span");
+    pill.textContent = item;
+    node.appendChild(pill);
+  });
+}
+
+function getResultMicrocopy(outfit) {
+  if (outfit.vibe) return `${outfit.vibe}: ${outfit.palette?.label || "paleta cuidada"}.`;
+  return "Look generado con prendas reales de tu armario.";
+}
+
+function recordEngagementActivity(options = {}) {
+  const today = getDayKey();
+  engagement = {
+    ...engagement,
+    activeDays: engagement.activeDays.includes(today) ? engagement.activeDays : [...engagement.activeDays, today].sort(),
+    generatedCount: engagement.generatedCount + (options.generated ? 1 : 0),
+    lastOpenedAt: Date.now()
+  };
+  saveEngagement(engagement);
 }
 
 function touchEngagement(current) {
@@ -1182,6 +1398,16 @@ function estimateDataUrlSizeMb(dataUrl) {
 function formatConfidence(confidence) {
   const value = Math.round((Number(confidence) || 0) * 100);
   return `${value}%`;
+}
+
+function escapeHtml(value) {
+  return String(value).replace(/[&<>"']/g, character => ({
+    "&": "&amp;",
+    "<": "&lt;",
+    ">": "&gt;",
+    '"': "&quot;",
+    "'": "&#39;"
+  }[character]));
 }
 
 function setButtonLoading(button, text) {
