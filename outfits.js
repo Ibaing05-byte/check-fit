@@ -62,10 +62,10 @@ const VIBE_PROFILES = {
     copy: "básico de verano"
   },
   "winter layered": {
-    label: "look con capas",
+    label: "look cómodo para frío",
     styles: ["casual", "streetwear", "minimalista"],
     paletteBias: ["dark", "neutral", "warm"],
-    copy: "look con capas"
+    copy: "look cómodo para frío"
   }
 };
 
@@ -92,9 +92,28 @@ export function recommendOutfit(wardrobe, context, options = {}) {
 }
 
 export function createOutfitTitle(context) {
-  const occasion = context.occasion || "hoy";
-  const style = context.vibe || (context.style && context.style !== "cualquiera" ? context.style : "fit");
-  return `${capitalize(occasion)} · ${style}`;
+  const occasion = String(context.occasion || "").toLowerCase();
+  const climate = String(context.climate || "").toLowerCase();
+  const style = String(context.style || "").toLowerCase();
+  const temperature = Number(context.temperature);
+  const isCold = climate === "frío" || Number.isFinite(temperature) && temperature <= 12;
+  const isWarm = climate === "calor" || Number.isFinite(temperature) && temperature >= 26;
+
+  if (climate === "lluvia") return "Look práctico para lluvia";
+  if (occasion === "clase") return isCold ? "Look cómodo para clase" : "Look casual para clase";
+  if (occasion === "trabajo") return "Look cuidado para trabajar";
+  if (occasion === "cita") return "Look casual cuidado";
+  if (occasion === "fiesta") return "Outfit para salir";
+  if (occasion === "evento formal") return "Look elegante para evento";
+  if (occasion === "deporte") return "Look cómodo para moverte";
+  if (occasion === "viaje") return "Look práctico para viajar";
+  if (isWarm) return "Look ligero para calor";
+  if (isCold) return "Look cómodo para frío";
+  if (occasion === "paseo" || occasion === "plan casual") return "Look relajado para diario";
+  if (style === "streetwear") return "Look urbano para hoy";
+  if (style === "elegante" || style === "formal") return "Casual elegante para hoy";
+  if (style === "minimalista") return "Look limpio de diario";
+  return "Look limpio de diario";
 }
 
 export function getOutfitPieceIds(pieces) {
@@ -407,10 +426,10 @@ function buildExplanation(pieces, requiredGroups, context, vibe, palette, advice
   const missingText = missingGroups.length ? ` Falta ${formatList(missingGroups)} para cerrar el look.` : "";
   const mood = vibe?.copy || getLookMood(context, pieces);
   const layerText = pieces.some(piece => TYPE_GROUPS.layer.includes(piece.type))
-    ? "capa con intención"
+    ? "una prenda de abrigo bien integrada"
     : "base ligera";
   const shoe = pieces.find(piece => TYPE_GROUPS.shoes.includes(piece.type));
-  const shoeText = shoe ? ` y ${shoe.type} que aterrizan el fit` : "";
+  const shoeText = shoe ? ` y ${shoe.type} que cierran el look` : "";
   const adviceText = advice?.length ? ` ${advice[0]}` : "";
 
   const occasionText = context.occasion ? ` para ${context.occasion}` : "";
@@ -605,7 +624,7 @@ function buildAdvice(pieces, requiredGroups, context, options, vibe, palette) {
   const advice = [];
   const groups = new Set(pieces.flatMap(getItemGroups));
   const missing = requiredGroups.filter(group => !groups.has(group));
-  if (missing.length) advice.push(`Te falta ${formatList(missing.map(group => GROUP_LABELS[group]))} para que el fit quede completo.`);
+  if (missing.length) advice.push(`Te falta ${formatList(missing.map(group => GROUP_LABELS[group]))} para que el look quede completo.`);
 
   const forgotten = pieces.find(isForgottenItem);
   if (forgotten) advice.push(`Hace tiempo que no usas ${forgotten.name}; aquí vuelve sin forzar el look.`);
@@ -618,13 +637,13 @@ function buildAdvice(pieces, requiredGroups, context, options, vibe, palette) {
   if (!shoe) advice.push("Añade un calzado claro y el look sube mucho.");
 
   if (context.climate === "lluvia" && !pieces.some(piece => ["botas", "zapatos", "chaqueta", "cazadora", "abrigo"].includes(piece.type))) {
-    advice.push("Para lluvia, una capa o calzado más cerrado haría el look más útil.");
+    advice.push("Para lluvia, una chaqueta o calzado más cerrado haría el look más útil.");
   }
   if (context.temperature <= 12 && !pieces.some(piece => TYPE_GROUPS.layer.includes(piece.type))) {
-    advice.push("Con frío, una capa exterior haría el outfit más completo.");
+    advice.push("Con frío, una prenda de abrigo haría el outfit más completo.");
   }
   if (context.temperature >= 26 && pieces.some(piece => ["abrigo", "jersey", "bufanda"].includes(piece.type))) {
-    advice.push("Para calor, mejor mantener tejidos ligeros y menos capas.");
+    advice.push("Para calor, mejor mantener tejidos ligeros y menos prendas pesadas.");
   }
 
   if (palette.key === "neutral") advice.push("Tu armario tiene buenos básicos: úsalo a favor con una silueta limpia.");
@@ -733,7 +752,7 @@ function formatVibeName(value = "") {
     "office fit": "look de oficina",
     "rainy day": "día de lluvia",
     "summer basic": "básico de verano",
-    "winter layered": "look con capas"
+    "winter layered": "look cómodo para frío"
   };
   return labels[normalized] || normalized;
 }

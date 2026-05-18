@@ -50,8 +50,18 @@ const VISION_CACHE_LIMIT = 12;
 const VISION_REQUEST_TIMEOUT_MS = 18000;
 
 const elements = {
+  heroPrimaryAction: document.getElementById("heroPrimaryAction"),
+  showExampleButton: document.getElementById("showExampleButton"),
+  closeExampleButton: document.getElementById("closeExampleButton"),
+  exampleLookCard: document.getElementById("exampleLookCard"),
   heroItemCount: document.getElementById("heroItemCount"),
   heroLookStack: document.getElementById("heroLookStack"),
+  starterEyebrow: document.getElementById("starterEyebrow"),
+  starterTitle: document.getElementById("starterTitle"),
+  starterText: document.getElementById("starterText"),
+  starterPrimaryAction: document.getElementById("starterPrimaryAction"),
+  starterProgressBar: document.getElementById("starterProgressBar"),
+  starterProgressText: document.getElementById("starterProgressText"),
   dailyTitle: document.getElementById("dailyTitle"),
   dailyLookStack: document.getElementById("dailyLookStack"),
   dailyMessage: document.getElementById("dailyMessage"),
@@ -198,6 +208,8 @@ function hydrateSelects() {
 }
 
 function bindEvents() {
+  elements.showExampleButton.addEventListener("click", showExampleLook);
+  elements.closeExampleButton.addEventListener("click", hideExampleLook);
   elements.singleModeButton.addEventListener("click", () => setCaptureMode("single"));
   elements.closetModeButton.addEventListener("click", () => setCaptureMode("closet"));
   elements.photo.addEventListener("change", previewSinglePhoto);
@@ -228,6 +240,15 @@ function bindEvents() {
   elements.historyFavoriteFilter.addEventListener("click", () => setHistoryFilter("favorites"));
   elements.editItemForm.addEventListener("submit", saveEditedItem);
   elements.closeEditDialog.addEventListener("click", () => elements.editDialog.close());
+}
+
+function showExampleLook() {
+  elements.exampleLookCard.hidden = false;
+  elements.exampleLookCard.scrollIntoView({ behavior: "smooth", block: "nearest" });
+}
+
+function hideExampleLook() {
+  elements.exampleLookCard.hidden = true;
 }
 
 function setCaptureMode(mode) {
@@ -930,6 +951,7 @@ function deleteHistoryOutfit(id) {
 
 function renderAll() {
   updateOnboardingMode();
+  renderOnboardingState();
   renderStats();
   renderDrafts();
   renderWardrobe();
@@ -940,15 +962,34 @@ function renderAll() {
 
 function updateOnboardingMode() {
   const canRecommendDailyLooks = wardrobe.length >= 3;
+  document.body.classList.toggle("new-wardrobe", wardrobe.length === 0);
+  document.body.classList.toggle("starter-wardrobe", wardrobe.length > 0 && wardrobe.length < 3);
   document.body.classList.toggle("has-wardrobe", canRecommendDailyLooks);
   document.body.classList.toggle("empty-wardrobe", !canRecommendDailyLooks);
+}
+
+function renderOnboardingState() {
+  const started = wardrobe.length > 0 && wardrobe.length < 3;
+  const progress = Math.min(100, Math.round((wardrobe.length / 5) * 100));
+
+  elements.heroPrimaryAction.textContent = started ? "Añadir más prendas" : "Empezar con mi armario";
+  elements.starterEyebrow.textContent = started ? "Armario empezado" : "Primer paso";
+  elements.starterTitle.textContent = started ? "Ya has empezado tu armario" : "Empieza con 5 prendas";
+  elements.starterText.textContent = started
+    ? "Añade unas pocas prendas más para crear looks mejores."
+    : "Con unas pocas piezas, SACLO ya puede crear tus primeros looks.";
+  elements.starterPrimaryAction.textContent = started ? "Añadir más prendas" : "Subir primera prenda";
+  elements.starterProgressBar.parentElement.hidden = !started;
+  elements.starterProgressText.hidden = !started;
+  elements.starterProgressBar.style.width = `${progress}%`;
+  elements.starterProgressText.textContent = `${wardrobe.length}/5 prendas añadidas`;
 }
 
 function renderStats() {
   elements.totalItems.textContent = wardrobe.length;
   elements.pendingItems.textContent = drafts.length;
   elements.pendingBadge.textContent = drafts.length;
-  elements.heroItemCount.textContent = wardrobe.length < 3 ? `${wardrobe.length}/5 prendas` : `${wardrobe.length} prendas`;
+  elements.heroItemCount.textContent = wardrobe.length < 3 ? "Armario en marcha" : `${wardrobe.length} prendas`;
   elements.confirmAllPending.disabled = drafts.length === 0;
   elements.clearPending.disabled = drafts.length === 0;
   elements.homeWardrobeCount.textContent = wardrobe.length;
@@ -1148,19 +1189,7 @@ function generateDailyAlternative() {
 
 function getDailyLookName(outfit, context) {
   if (!outfit?.pieces?.length) return "Tu look está esperando";
-  const vibe = String(outfit.vibeKey || outfit.vibe || "").toLowerCase();
-  if (vibe === "casual clean" || vibe === "casual limpio") return "Casual limpio para hoy";
-  if (vibe === "smart casual" || vibe === "casual elegante") return context.temperature >= 20 ? "Casual elegante ligero" : "Casual elegante";
-  if (vibe === "streetwear relaxed" || vibe === "streetwear relajado") return "Streetwear relajado";
-  if (vibe === "minimal premium") return "Minimal premium";
-  if (vibe === "sport casual" || vibe === "deportivo casual") return "Deportivo casual";
-  if (vibe === "night out" || vibe === "look de noche") return "Look de noche";
-  if (vibe === "university fit" || vibe === "look de clase") return "Look cómodo de diario";
-  if (vibe === "office fit" || vibe === "look de oficina") return "Look de oficina";
-  if (vibe === "rainy day" || vibe === "día de lluvia") return "Día de lluvia";
-  if (vibe === "winter layered" || vibe === "look con capas") return "Look con capas";
-  if (vibe === "summer basic" || vibe === "básico de verano") return "Básico de verano";
-  return formatVibeName(outfit.vibe) || createOutfitTitle(context);
+  return createOutfitTitle({ ...context, vibe: outfit.vibe, vibeKey: outfit.vibeKey });
 }
 
 function getDailyMessage(context, outfit, profile) {
@@ -1172,13 +1201,13 @@ function getDailyMessage(context, outfit, profile) {
   const currentVibe = formatVibeName(outfit.vibe || outfit.vibeKey);
   const previousVibe = formatVibeName(lastWorn?.vibe);
   if (previousVibe && currentVibe && previousVibe !== currentVibe) return `Ayer tiraste más a ${previousVibe}; hoy puedes variar con ${currentVibe}.`;
-  if (context.climate === "lluvia") return "Hoy pide un look práctico: capa clara, calzado cerrado y una paleta fácil.";
-  if (context.temperature <= 12) return "Buen día para un look con capas. Que abrigue sin perder forma.";
-  if (context.temperature >= 26) return "Hoy encaja un fit ligero, limpio y sin capas de más.";
+  if (context.climate === "lluvia") return "Hoy pide un look práctico: chaqueta ligera, calzado cerrado y una paleta fácil.";
+  if (context.temperature <= 12) return "Buen día para un look cómodo y abrigado, sin perder forma.";
+  if (context.temperature >= 26) return "Hoy encaja un look ligero, limpio y sin prendas de más.";
   if (forgotten) return `Tienes una prenda olvidada que puede salvar el outfit: ${forgotten.name}.`;
   if (profile.favoriteColors?.length) return `Te propongo ${palette}, cerca de los colores que más repites.`;
-  if (context.occasion === "clase") return hasLayer ? "Hoy pide un look cómodo y limpio para clase, con una capa fácil." : "Hoy pide un look cómodo y limpio para clase.";
-  return outfit.advice?.[0] || "Tu armario tiene potencial para un fit más cuidado hoy.";
+  if (context.occasion === "clase") return hasLayer ? "Hoy pide un look cómodo y limpio para clase, con una prenda de abrigo fácil." : "Hoy pide un look cómodo y limpio para clase.";
+  return outfit.advice?.[0] || "Tu armario tiene potencial para un look más cuidado hoy.";
 }
 
 function formatVibeName(value = "") {
@@ -1194,7 +1223,7 @@ function formatVibeName(value = "") {
     "office fit": "look de oficina",
     "rainy day": "día de lluvia",
     "summer basic": "básico de verano",
-    "winter layered": "look con capas"
+    "winter layered": "look cómodo para frío"
   };
   return labels[normalized] || normalized;
 }
@@ -1385,9 +1414,9 @@ function focusWardrobeItem(item) {
 
 function getDailyWardrobeHint(profile = getUserStyleProfile()) {
   const basicCount = wardrobe.filter(item => ["camiseta", "camisa", "vaqueros", "pantalón", "zapatillas"].includes(item.type)).length;
-  if (profile.preferredVibes?.length) return `Tu estilo está tirando hacia ${profile.preferredVibes[0]}. Hoy puedes mantenerlo sin copiar el último look.`;
+  if (profile.preferredVibes?.length) return `Tu estilo está tirando hacia ${formatVibeName(profile.preferredVibes[0])}. Hoy puedes mantenerlo sin copiar el último look.`;
   if (basicCount >= Math.max(3, Math.round(wardrobe.length * 0.55))) return "Tu armario tiene muchos básicos: úsalo a favor con una paleta más neutra.";
-  if (!wardrobe.some(item => ["chaqueta", "cazadora", "abrigo", "sudadera", "jersey"].includes(item.type))) return "Te falta una capa para días fríos.";
+  if (!wardrobe.some(item => ["chaqueta", "cazadora", "abrigo", "sudadera", "jersey"].includes(item.type))) return "Te falta una prenda de abrigo para días fríos.";
   if (!wardrobe.some(item => ["zapatillas", "zapatos", "botas", "sandalias"].includes(item.type))) return "El siguiente salto está claro: añade calzado para cerrar mejor los looks.";
   return "Guarda tus mejores looks para que SACLO aprenda qué te apetece repetir.";
 }
@@ -1419,7 +1448,7 @@ function getWardrobeMissingPiece() {
     return `${wardrobe.length} prendas añadidas. Te falta calzado para mejores outfits. Añade tus zapatillas favoritas.`;
   }
   if (!wardrobe.some(item => ["chaqueta", "cazadora", "abrigo", "sudadera", "jersey"].includes(item.type))) {
-    return `${wardrobe.length} prendas añadidas. Completa tus chaquetas o una capa para looks con más forma.`;
+    return `${wardrobe.length} prendas añadidas. Añade una chaqueta o sudadera para crear looks con más forma.`;
   }
   if (!wardrobe.some(item => ["camiseta", "camisa", "polo", "top"].includes(item.type))) {
     return `${wardrobe.length} prendas añadidas. Sube 3 prendas básicas para mejorar los looks.`;
@@ -1438,8 +1467,8 @@ function renderAdvice(node, advice = []) {
 
 function getResultMicrocopy(outfit) {
   const forgotten = outfit.pieces?.find(item => !item.usageCount || !item.lastUsedAt);
-  if (forgotten) return `${outfit.vibe}: rescata ${forgotten.name} con ${outfit.palette?.label || "paleta cuidada"}.`;
-  if (outfit.vibe) return `${outfit.vibe}: ${outfit.palette?.label || "paleta cuidada"}.`;
+  if (forgotten) return `Rescata ${forgotten.name} dentro de un look fácil de llevar.`;
+  if (outfit.palette?.label) return `Look listo con ${outfit.palette.label}.`;
   return "Look generado con prendas reales de tu armario.";
 }
 

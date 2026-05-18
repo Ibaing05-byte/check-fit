@@ -149,11 +149,11 @@ Devuelve hasta 8 prendas claramente visibles por imagen y una nota de revisión.
 - Sección `Hoy en SACLO` con racha, prendas sin usar, último outfit usado y acceso rápido al look del día.
 - Historial con favoritos, fecha, ocasión, clima, marcado de uso y botón `Usar de nuevo`.
 - Outfit engine más estricto con paletas, ocasión, clima, favoritos, rotación semanal y prendas menos usadas.
-- Nuevo sistema de vibes en español: casual limpio, streetwear relajado, casual elegante, minimal premium, deportivo casual, look de noche, look de clase, look de oficina, día de lluvia, básico de verano y look con capas.
+- Nuevo sistema de estilos para recomendaciones: casual limpio, streetwear relajado, casual elegante, minimal premium, deportivo casual, look de noche, look de clase, look de oficina, día de lluvia, básico de verano y look cómodo para frío.
 - “Hoy en SACLO” ahora actúa como companion diario: look accionable, variaciones, prendas olvidadas, consejos y señales de uso.
 - Favoritos de prendas y outfits usados como señal para futuras recomendaciones.
-- Historial inteligente con vibe, paleta, prendas usadas, favorito, usado, variación y eliminación.
-- Perfil de estilo inferido localmente: estilos, colores, vibes, prendas favoritas, ocasión habitual y nivel de formalidad.
+- Historial inteligente con estilo, paleta, prendas usadas, favorito, usado, variación y eliminación.
+- Perfil de estilo inferido localmente: estilos, colores, preferencias, prendas favoritas, ocasión habitual y nivel de formalidad.
 - Prendas olvidadas accionables: SACLO puede crear un look alrededor de una prenda concreta.
 
 ## Outfit Intelligence

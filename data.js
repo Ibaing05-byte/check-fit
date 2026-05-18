@@ -51,7 +51,7 @@ export const TYPE_GROUPS = {
 
 export const GROUP_LABELS = {
   top: "parte de arriba",
-  layer: "capa exterior",
+  layer: "prenda de abrigo",
   bottom: "parte de abajo",
   shoes: "calzado",
   accessory: "accesorio"

@@ -1,4 +1,4 @@
-import { DEFAULT_WARDROBE, SEASONS, STORAGE_KEYS, STYLES, TYPES } from "./data.js";
+import { SEASONS, STORAGE_KEYS, STYLES, TYPES } from "./data.js";
 
 export function createId(prefix = "cf") {
   if (window.crypto?.randomUUID) return `${prefix}-${crypto.randomUUID()}`;
@@ -25,7 +25,7 @@ export function writeJson(key, value) {
 
 export function loadWardrobe() {
   const stored = readJson(STORAGE_KEYS.wardrobe, null);
-  const source = Array.isArray(stored) ? stored : DEFAULT_WARDROBE;
+  const source = Array.isArray(stored) ? stored : [];
   return source.map(normalizeWardrobeItem);
 }
 

@@ -33,8 +33,8 @@
           <h2>Menos esfuerzo. Mejores looks.</h2>
           <p>Sube tu ropa y recibe outfits para tu día.</p>
           <div class="hero-actions">
-            <a class="button-link primary" href="#capture">Empezar</a>
-            <a class="button-link secondary" href="#outfitBuilder">Crear outfit</a>
+            <a id="heroPrimaryAction" class="button-link primary" href="#capture">Empezar con mi armario</a>
+            <button id="showExampleButton" class="button-link secondary" type="button">Ver ejemplo</button>
           </div>
           <small class="hero-note">Empieza con 3-5 prendas.</small>
         </div>
@@ -47,20 +47,38 @@
           <div class="phone-outfit-card">
             <span>Clase · frío</span>
             <strong>Casual limpio</strong>
-            <small>Base neutra, capa cómoda y calzado fácil.</small>
+            <small>Base neutra, abrigo cómodo y calzado fácil.</small>
           </div>
           <p>Looks según clima, ocasión y estilo.</p>
         </div>
       </section>
 
+      <section id="exampleLookCard" class="example-look-card" aria-label="Ejemplo de look en SACLO" hidden>
+        <div>
+          <p class="eyebrow">Ejemplo</p>
+          <h2>Look cómodo para clase</h2>
+          <p>Un ejemplo visual de cómo SACLO convierte prendas en una recomendación diaria clara.</p>
+        </div>
+        <div class="example-outfit-preview" aria-hidden="true">
+          <span class="demo-piece jacket"></span>
+          <span class="demo-piece denim"></span>
+          <span class="demo-piece shoe"></span>
+        </div>
+        <button id="closeExampleButton" class="secondary" type="button">Cerrar ejemplo</button>
+      </section>
+
       <section class="starter-guide" aria-label="Primeros pasos en SACLO">
         <div>
-          <p class="eyebrow">Primer uso</p>
-          <h2>Empieza con tus primeras prendas</h2>
-          <p>Con 5 prendas ya puedes crear tus primeros looks.</p>
+          <p id="starterEyebrow" class="eyebrow">Primer paso</p>
+          <h2 id="starterTitle">Empieza con 5 prendas</h2>
+          <p id="starterText">Con unas pocas piezas, SACLO ya puede crear tus primeros looks.</p>
+          <div class="starter-progress" aria-label="Progreso de armario" hidden>
+            <span id="starterProgressBar"></span>
+          </div>
+          <small id="starterProgressText" class="starter-progress-text" hidden></small>
         </div>
         <div class="starter-actions">
-          <a class="button-link primary" href="#capture">Subir primera prenda</a>
+          <a id="starterPrimaryAction" class="button-link primary" href="#capture">Subir primera prenda</a>
           <a class="button-link secondary" href="#capture">Digitalizar por zonas</a>
         </div>
       </section>
@@ -119,28 +137,31 @@
 
     <main>
       <section class="onboarding" aria-label="Cómo empezar">
+        <div class="onboarding-heading">
+          <p class="eyebrow">Así funciona SACLO</p>
+        </div>
         <article>
           <span>01</span>
           <strong>Añade tu ropa</strong>
-          <p>Sube prendas o digitaliza tu armario por zonas.</p>
+          <p>Sube prendas o digitaliza por zonas.</p>
         </article>
         <article>
           <span>02</span>
           <strong>SACLO la entiende</strong>
-          <p>Detecta tipo, color, estilo y temporada para organizar tu armario.</p>
+          <p>Detecta tipo, color, estilo y temporada.</p>
         </article>
         <article>
           <span>03</span>
           <strong>Recibe looks diarios</strong>
-          <p>Crea outfits según clima, ocasión, favoritos y prendas olvidadas.</p>
+          <p>Outfits según clima, ocasión y tu estilo.</p>
         </article>
       </section>
 
       <section class="app-grid app-screen" id="outfit" aria-label="Captura y outfit">
         <section id="capture" class="surface capture-panel" aria-label="Añadir prendas">
           <div class="section-heading">
-            <p class="eyebrow">Captura inteligente</p>
-            <h2>Meter ropa sin fricción</h2>
+            <p class="eyebrow">Añadir ropa</p>
+            <h2>Construye tu armario</h2>
           </div>
 
           <div class="segmented-control" role="tablist" aria-label="Modo de captura">
