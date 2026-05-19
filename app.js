@@ -36,6 +36,7 @@ import {
 const DEFAULT_API_BASE_URL = "https://check-fit.onrender.com";
 const API_BASE_STORAGE_KEY = "sacloApiBaseUrl";
 const STYLE_PROFILE_STORAGE_KEY = "sacloStyleProfile";
+const WEATHER_STORAGE_KEY = "sacloWeatherToday";
 const LEGACY_API_STORAGE_KEYS = ["checkFitApiUrl", "sacloApiUrl", "sacloDevMode"];
 const LEGACY_LOCAL_API_URLS = new Set([
   "http://localhost:3000",
@@ -127,6 +128,8 @@ const elements = {
   climate: document.getElementById("climate"),
   temperature: document.getElementById("temperature"),
   outfitStyle: document.getElementById("outfitStyle"),
+  useCurrentWeather: document.getElementById("useCurrentWeather"),
+  weatherStatus: document.getElementById("weatherStatus"),
   recommendButton: document.getElementById("recommendButton"),
   outfitFeedback: document.getElementById("outfitFeedback"),
   anotherOutfitButton: document.getElementById("anotherOutfitButton"),
@@ -183,6 +186,7 @@ function init() {
   saveEngagement(engagement);
   cleanupLegacyApiConfig();
   hydrateSelects();
+  hydrateCachedWeather();
   bindEvents();
   renderAll();
   setupNavigationState();
@@ -230,6 +234,7 @@ function bindEvents() {
   elements.wardrobeColorFilter.addEventListener("change", updateFiltersFromControls);
   elements.wardrobeSort.addEventListener("change", updateFiltersFromControls);
   elements.clearWardrobe.addEventListener("click", clearWardrobe);
+  elements.useCurrentWeather.addEventListener("click", useCurrentWeather);
   elements.recommendButton.addEventListener("click", () => generateOutfit());
   elements.dailyCreateButton.addEventListener("click", useDailyOutfit);
   elements.dailyAnotherButton.addEventListener("click", generateDailyAlternative);
@@ -1158,6 +1163,156 @@ function getDailyContext() {
   };
 }
 
+function hydrateCachedWeather() {
+  const cachedWeather = readCachedWeather();
+  if (!cachedWeather) return;
+  applyWeatherToControls(cachedWeather, { silent: true });
+}
+
+async function useCurrentWeather() {
+  const cachedWeather = readCachedWeather();
+  if (cachedWeather) {
+    applyWeatherToControls(cachedWeather);
+    return;
+  }
+
+  if (!("geolocation" in navigator)) {
+    showStatus(elements.weatherStatus, "El clima automático no está disponible ahora mismo.");
+    return;
+  }
+
+  setButtonLoading(elements.useCurrentWeather, "Buscando clima...");
+  showStatus(elements.weatherStatus, "Buscando tu clima actual...");
+
+  try {
+    const position = await getBrowserPosition();
+    const weather = await fetchOpenMeteoWeather(position.coords.latitude, position.coords.longitude);
+    saveDetectedWeather(weather);
+    applyWeatherToControls(weather);
+  } catch (error) {
+    const isLocationError = typeof error?.code === "number" && error.code >= 1 && error.code <= 3;
+    const message = isLocationError
+      ? "No hemos podido obtener tu clima. Puedes introducirlo manualmente."
+      : "El clima automático no está disponible ahora mismo.";
+    showStatus(elements.weatherStatus, message);
+  } finally {
+    setButtonReady(elements.useCurrentWeather, "Usar mi clima actual");
+  }
+}
+
+function getBrowserPosition() {
+  return new Promise((resolve, reject) => {
+    navigator.geolocation.getCurrentPosition(resolve, reject, {
+      enableHighAccuracy: false,
+      maximumAge: 1000 * 60 * 20,
+      timeout: 9000
+    });
+  });
+}
+
+async function fetchOpenMeteoWeather(latitude, longitude) {
+  const params = new URLSearchParams({
+    latitude: String(latitude),
+    longitude: String(longitude),
+    current: "temperature_2m,precipitation,rain,weather_code,cloud_cover,wind_speed_10m",
+    hourly: "precipitation_probability",
+    forecast_days: "1",
+    timezone: "auto"
+  });
+  const response = await fetch(`https://api.open-meteo.com/v1/forecast?${params}`);
+  if (!response.ok) throw new Error("weather-unavailable");
+
+  const data = await response.json();
+  const current = data.current || {};
+  const temperature = Number(current.temperature_2m);
+  if (!Number.isFinite(temperature)) throw new Error("weather-unavailable");
+
+  const precipitationProbability = getCurrentPrecipitationProbability(data.hourly, current.time);
+  const climate = mapOpenMeteoToClimate({
+    temperature,
+    weatherCode: Number(current.weather_code),
+    precipitation: Number(current.precipitation) || 0,
+    rain: Number(current.rain) || 0,
+    cloudCover: Number(current.cloud_cover) || 0,
+    windSpeed: Number(current.wind_speed_10m) || 0,
+    precipitationProbability
+  });
+
+  return {
+    date: getDayKey(),
+    temperature: Math.round(temperature),
+    climate,
+    precipitationProbability
+  };
+}
+
+function getCurrentPrecipitationProbability(hourly = {}, currentTime = "") {
+  const times = Array.isArray(hourly.time) ? hourly.time : [];
+  const values = Array.isArray(hourly.precipitation_probability) ? hourly.precipitation_probability : [];
+  const currentHour = String(currentTime || "").slice(0, 13);
+  const index = times.findIndex(time => String(time).slice(0, 13) === currentHour);
+  const probability = Number(values[index]);
+  return Number.isFinite(probability) ? probability : 0;
+}
+
+function mapOpenMeteoToClimate(weather) {
+  if (isRainCode(weather.weatherCode) || weather.precipitation > 0 || weather.rain > 0 || weather.precipitationProbability >= 45) {
+    return "lluvia";
+  }
+  if (weather.windSpeed >= 35) return "viento";
+  if (weather.temperature <= 12) return "frío";
+  if (weather.temperature >= 26) return "calor";
+  if (weather.cloudCover >= 65 || isCloudyCode(weather.weatherCode)) return "nublado";
+  if (weather.temperature >= 16 && weather.temperature <= 25) return "templado";
+  return "soleado";
+}
+
+function isRainCode(code) {
+  return (code >= 51 && code <= 67) || (code >= 80 && code <= 82) || (code >= 95 && code <= 99);
+}
+
+function isCloudyCode(code) {
+  return [2, 3, 45, 48].includes(code);
+}
+
+function readCachedWeather() {
+  try {
+    const weather = JSON.parse(readLocalValue(WEATHER_STORAGE_KEY, "{}")) || {};
+    if (weather.date !== getDayKey()) return null;
+    if (!CLIMATES.includes(weather.climate)) return null;
+    if (!Number.isFinite(Number(weather.temperature))) return null;
+    return {
+      date: weather.date,
+      climate: weather.climate,
+      temperature: Number(weather.temperature),
+      precipitationProbability: Number(weather.precipitationProbability) || 0
+    };
+  } catch {
+    return null;
+  }
+}
+
+function saveDetectedWeather(weather) {
+  writeLocalValue(WEATHER_STORAGE_KEY, JSON.stringify({
+    date: weather.date,
+    temperature: weather.temperature,
+    climate: weather.climate,
+    precipitationProbability: weather.precipitationProbability
+  }));
+}
+
+function applyWeatherToControls(weather, options = {}) {
+  elements.temperature.value = weather.temperature;
+  elements.climate.value = weather.climate;
+  if (options.silent) return;
+
+  const probability = weather.precipitationProbability
+    ? ` · ${weather.precipitationProbability}% lluvia`
+    : "";
+  showStatus(elements.weatherStatus, `Clima aplicado: ${weather.temperature}°C · ${weather.climate}${probability}. Puedes ajustarlo si quieres.`);
+  showToast("Clima de hoy aplicado.");
+}
+
 function useDailyOutfit() {
   if (!dailyOutfit?.pieces?.length) {
     document.getElementById("capture").scrollIntoView({ behavior: "smooth", block: "start" });
@@ -1470,6 +1625,14 @@ function renderAdvice(node, advice = []) {
 }
 
 function getResultMicrocopy(outfit) {
+  const context = outfit.context || {};
+  const temperature = Number(context.temperature);
+  if (context.climate === "lluvia") return "Hoy hay lluvia, así que SACLO prioriza prendas prácticas y calzado cerrado.";
+  if (context.climate === "viento") return "Hoy hay viento, así que SACLO prioriza capas cómodas y prendas fáciles de llevar.";
+  if (Number.isFinite(temperature) && temperature <= 12) return "Hoy hace frío, así que SACLO prioriza una capa cálida.";
+  if (Number.isFinite(temperature) && temperature <= 17) return "Hoy hace fresco, así que SACLO prioriza una capa ligera.";
+  if (Number.isFinite(temperature) && temperature >= 26) return "Hoy hace calor, así que SACLO prioriza prendas ligeras.";
+  if (context.climate === "templado") return "Hoy el clima acompaña, así que SACLO busca un look cómodo sin capas de más.";
   const forgotten = outfit.pieces?.find(item => !item.usageCount || !item.lastUsedAt);
   if (forgotten) return `Rescata ${forgotten.name} dentro de un look fácil de llevar.`;
   if (outfit.palette?.label) return `Look listo con ${outfit.palette.label}.`;

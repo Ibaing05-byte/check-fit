@@ -39,7 +39,7 @@ export const STYLES = ["casual", "elegante", "deportivo", "streetwear", "formal"
 export const SEASONS = ["verano", "invierno", "entretiempo", "todo el año"];
 export const COLORS = ["blanco", "negro", "gris", "azul", "rojo", "verde", "amarillo", "beige", "marrón", "rosa", "morado", "naranja", "multicolor", "otro"];
 export const OCCASIONS = ["clase", "trabajo", "cita", "fiesta", "paseo", "viaje", "evento formal", "plan casual", "deporte"];
-export const CLIMATES = ["soleado", "lluvia", "frío", "calor", "nublado", "viento"];
+export const CLIMATES = ["soleado", "templado", "lluvia", "frío", "calor", "nublado", "viento"];
 
 export const TYPE_GROUPS = {
   top: ["camiseta", "camisa", "polo", "top", "jersey", "sudadera"],

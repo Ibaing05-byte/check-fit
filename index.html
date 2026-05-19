@@ -8,26 +8,26 @@
   <meta name="apple-mobile-web-app-title" content="SACLO" />
   <meta name="application-name" content="SACLO" />
   <title>SACLO</title>
-  <link rel="icon" type="image/png" href="assets/app-icon-saclo.png?v=2026-05-19-cache" />
-  <link rel="icon" type="image/png" sizes="192x192" href="assets/app-icon-192.png?v=2026-05-19-cache" />
-  <link rel="icon" type="image/png" sizes="512x512" href="assets/app-icon-512.png?v=2026-05-19-cache" />
-  <link rel="apple-touch-icon" sizes="180x180" href="assets/app-icon-saclo.png?v=2026-05-19-cache" />
-  <link rel="stylesheet" href="styles.css?v=2026-05-19-cache" />
-  <script type="module" src="app.js?v=2026-05-19-cache"></script>
+  <link rel="icon" type="image/png" href="assets/app-icon-saclo.png?v=2026-05-19-weather" />
+  <link rel="icon" type="image/png" sizes="192x192" href="assets/app-icon-192.png?v=2026-05-19-weather" />
+  <link rel="icon" type="image/png" sizes="512x512" href="assets/app-icon-512.png?v=2026-05-19-weather" />
+  <link rel="apple-touch-icon" sizes="180x180" href="assets/app-icon-saclo.png?v=2026-05-19-weather" />
+  <link rel="stylesheet" href="styles.css?v=2026-05-19-weather" />
+  <script type="module" src="app.js?v=2026-05-19-weather"></script>
 </head>
 <body class="new-wardrobe empty-wardrobe">
   <div class="app-shell">
     <header id="home" class="app-hero app-screen" aria-label="Inicio de SACLO">
       <nav class="topbar" aria-label="Resumen de producto">
         <a class="brand-lockup" href="#home" aria-label="SACLO">
-          <img class="brand-logo" src="assets/app-icon-saclo.png?v=2026-05-19-cache" alt="SACLO" />
+          <img class="brand-logo" src="assets/app-icon-saclo.png?v=2026-05-19-weather" alt="SACLO" />
           <span class="brand-mark">SACLO</span>
         </a>
         <span class="brand-pill">Estilo inteligente</span>
       </nav>
       <section class="hero-grid">
         <div class="hero-copy">
-          <img class="hero-brand-logo" src="assets/logo-saclo.png?v=2026-05-19-cache" alt="SACLO" />
+          <img class="hero-brand-logo" src="assets/logo-saclo.png?v=2026-05-19-weather" alt="SACLO" />
           <p class="eyebrow">Tu asistente de armario</p>
           <h1>SACLO</h1>
           <h2>Menos esfuerzo. Mejores looks.</h2>
@@ -300,6 +300,14 @@
               </select>
             </label>
           </div>
+          <div class="weather-assist">
+            <div>
+              <p class="eyebrow">Clima de hoy</p>
+              <small>Usamos tu ubicación solo para estimar el clima de hoy.</small>
+            </div>
+            <button id="useCurrentWeather" class="secondary" type="button">Usar mi clima actual</button>
+          </div>
+          <p id="weatherStatus" class="status-note compact" hidden></p>
           <button id="recommendButton" class="primary full" type="button">Generar outfit</button>
           <p id="outfitFeedback" class="status-note compact" hidden></p>
 

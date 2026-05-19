@@ -1108,6 +1108,34 @@ select option {
   margin-bottom: 12px;
 }
 
+.weather-assist {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: center;
+  margin-bottom: 12px;
+  padding: 12px;
+  border: 1px solid rgba(91, 140, 255, 0.24);
+  border-radius: 8px;
+  background:
+    linear-gradient(135deg, rgba(91, 140, 255, 0.12), rgba(216, 195, 165, 0.05)),
+    rgba(255, 255, 255, 0.035);
+}
+
+.weather-assist .eyebrow {
+  margin-bottom: 3px;
+}
+
+.weather-assist small {
+  color: var(--muted);
+  line-height: 1.35;
+}
+
+.weather-assist button {
+  min-height: 44px;
+  white-space: normal;
+}
+
 .wardrobe-tools {
   grid-template-columns: minmax(220px, 1.3fr) repeat(5, minmax(130px, 1fr));
   margin-bottom: 14px;
@@ -1718,6 +1746,7 @@ select option {
   .onboarding,
   .crop-guide,
   .outfit-controls,
+  .weather-assist,
   .wardrobe-tools {
     grid-template-columns: 1fr 1fr;
   }
@@ -1841,6 +1870,7 @@ select option {
   .ai-panel,
   .form-grid,
   .outfit-controls,
+  .weather-assist,
   .wardrobe-tools,
   .zone-chips,
   .section-heading.inline,
@@ -1851,6 +1881,10 @@ select option {
   .retention-grid {
     grid-template-columns: 1fr;
     display: grid;
+  }
+
+  .weather-assist button {
+    width: 100%;
   }
 
   .onboarding {
